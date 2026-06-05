@@ -1,6 +1,7 @@
 #include <windows.h>
 #include <stdint.h>
 #include <Xinput.h>
+#include <DSound.h>
 #include <libloaderapi.h>
 
 #define internal static
@@ -16,6 +17,7 @@ typedef int8_t int8;
 typedef int16_t int16;
 typedef int32_t int32;
 typedef int64_t int64;
+typedef int32 bool32;
 
 struct win32_offscreen_buffer
 {
@@ -44,17 +46,20 @@ typedef X_INPUT_SET_STATE(x_input_set_state);
 
 X_INPUT_GET_STATE(XInputGetStateStub)
 {
-	return 0;
+	return ERROR_DEVICE_NOT_CONNECTED;
 }
 X_INPUT_SET_STATE(XInputSetStateStub)
 {
-	return 0;
+	return ERROR_DEVICE_NOT_CONNECTED;
 }
 
 global_variable x_input_get_state *_XInputGetState = XInputGetStateStub;
 global_variable x_input_set_state *_XInputSetState = XInputSetStateStub;
 #define XInputGetState _XInputGetState
 #define XInputSetState _XInputSetState
+
+#define DIRECT_SOUND_CREATE(name) HRESULT WINAPI name(LPCGUID pcGuidDevice, LPDIRECTSOUND *ppDS, LPUNKNOWN pUnkOuter)
+typedef DIRECT_SOUND_CREATE(direct_sound_create);
 
 internal void
 Win32LoadInput(void)
@@ -66,6 +71,73 @@ Win32LoadInput(void)
 		if (!XInputGetState) { XInputGetState = XInputGetStateStub; }
 		XInputSetState = (x_input_set_state *)GetProcAddress(XInputLibrary, "XInputSetState");
 		if (!XInputSetState) { XInputSetState = XInputSetStateStub; }
+	}
+	else
+	{
+		// TODO: Diagnostic
+	}
+}
+
+internal void
+Win32InitDSound(HWND Window, int32 SamplePerSecond, int32 BufferSize)
+{
+	HMODULE DSoundLibrary = LoadLibrary("dsound.dll");
+	if (DSoundLibrary)
+	{
+		direct_sound_create *DirectSoundCreate = (direct_sound_create *)
+			GetProcAddress(DSoundLibrary, "DirectSoundCreate");
+		
+		LPDIRECTSOUND DirectSound;
+		if (DirectSoundCreate && SUCCEEDED(DirectSoundCreate(0, &DirectSound, 0)))
+		{
+			WAVEFORMATEX WaveFormat = {};
+			WaveFormat.wFormatTag = WAVE_FORMAT_PCM;
+			WaveFormat.nChannels = 2;
+			WaveFormat.nSamplesPerSec = SamplePerSecond;
+			WaveFormat.wBitsPerSample = 16;
+			WaveFormat.nBlockAlign = (WaveFormat.nChannels * WaveFormat.wBitsPerSample) / 8;
+			WaveFormat.nAvgBytesPerSec = WaveFormat.nSamplesPerSec * WaveFormat.nBlockAlign;
+			WaveFormat.cbSize = 0;
+
+			if (SUCCEEDED(DirectSound->SetCooperativeLevel(Window, DSSCL_PRIORITY)))
+			{
+				DSBUFFERDESC BufferDescription = {};
+				BufferDescription.dwSize = sizeof(BufferDescription);
+				BufferDescription.dwFlags = DSBCAPS_PRIMARYBUFFER;
+
+				LPDIRECTSOUNDBUFFER PrimaryBuffer;
+				if (SUCCEEDED(DirectSound->CreateSoundBuffer(&BufferDescription, &PrimaryBuffer, 0)))
+				{
+					if (SUCCEEDED(PrimaryBuffer->SetFormat(&WaveFormat)))
+					{
+						OutputDebugStringA("Primary Buffer has set format!\n");
+					}
+					else
+					{
+						// TODO: Diagnostic
+					}
+				}
+			}
+			else
+			{
+
+			}
+
+			DSBUFFERDESC BufferDescription = {};
+			BufferDescription.dwSize = sizeof(BufferDescription);
+			BufferDescription.dwFlags = 0;
+			BufferDescription.dwBufferBytes = BufferSize;
+			BufferDescription.lpwfxFormat = &WaveFormat;
+			LPDIRECTSOUNDBUFFER SecondaryBuffer;
+			if (SUCCEEDED(DirectSound->CreateSoundBuffer(&BufferDescription, &SecondaryBuffer, 0)))
+			{
+				OutputDebugStringA("Secondary Buffer has set format!\n");
+			}
+		}
+		else
+		{
+			// TODO: Diagnostic
+		}
 	}
 }
 
@@ -124,7 +196,7 @@ Win32ResizeDIBSection(win32_offscreen_buffer *Buffer, int Width, int Height)
 	Buffer->Info.bmiHeader.biCompression = BI_RGB;
 
 	int BitmapMemorySize = (Buffer->Width * Buffer->Height) * BytesPerPixel;
-	Buffer->Memory = VirtualAlloc(0, BitmapMemorySize, MEM_COMMIT, PAGE_READWRITE);
+	Buffer->Memory = VirtualAlloc(0, BitmapMemorySize, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
 
 	Buffer->Pitch = Width * BytesPerPixel;
 }
@@ -230,6 +302,12 @@ Win32MainWindowCallback(
 				{
 
 				}
+				
+				bool32 AltKeyDown = (LParam & (1 << 29));
+				if (AltKeyDown && VKCode == VK_F4)
+				{
+					GlobalRunning = false;
+				}
 			}
 		} break;
 		case WM_PAINT:
@@ -294,9 +372,11 @@ int CALLBACK WinMain(
 		 if (Window)
 		 {
 			 HDC DeviceContext = GetDC(Window);
+
 			 int XOffset = 0;
 			 int YOffset = 0;
 
+			 Win32InitDSound(Window, 48000, 48000 * sizeof(int16) * 2);
 
 			 GlobalRunning = true;
 			 while (GlobalRunning)  
