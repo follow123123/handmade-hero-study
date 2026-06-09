@@ -2,7 +2,9 @@
 #include <stdint.h>
 #include <Xinput.h>
 #include <DSound.h>
+
 #include <math.h>
+#include <stdio.h>
 
 #define internal static
 #define local_persist static
@@ -404,6 +406,10 @@ int CALLBACK WinMain(
 	LPSTR     CommandLine,
 	int       ShowCode)
 {
+	LARGE_INTEGER PerfCountFrequencyResult;
+	QueryPerformanceFrequency(&PerfCountFrequencyResult);
+	int64 PerfCountFrequency = PerfCountFrequencyResult.QuadPart;
+
 	Win32LoadInput();
 	WNDCLASS WindowClass = {};
 		
@@ -455,9 +461,14 @@ int CALLBACK WinMain(
 			 GlobalSecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
 
 			 GlobalRunning = true;
+			 
+			 LARGE_INTEGER LastCounter;
+			 QueryPerformanceCounter(&LastCounter);
+			 uint64 LastCycleCount = __rdtsc();
 			 while (GlobalRunning)  
 			 {
 				 MSG Message;
+
 				 while (PeekMessage(&Message, 0, 0, 0, PM_REMOVE))
 				 {
 					 if (Message.message == WM_QUIT)
@@ -536,6 +547,24 @@ int CALLBACK WinMain(
 				 Win32DisplayBufferInWindow(&GlobalBackBuffer, DeviceContext, Dimension.Width, Dimension.Height);
 				 ReleaseDC(Window, DeviceContext);
 
+				 uint64 EndCycleCount = __rdtsc();
+			
+				 LARGE_INTEGER EndCounter;
+				 QueryPerformanceCounter(&EndCounter);
+			 
+				 // TODO: Display the value here
+				 uint64 CyclesElapsed = EndCycleCount - LastCycleCount;
+				 int64 CounterElapsed = EndCounter.QuadPart - LastCounter.QuadPart;
+				 real32 MSPerFrame = (1000.0f * (real32)CounterElapsed) / (real32)PerfCountFrequency;
+				 real32 FPS = (real32)PerfCountFrequency / (real32)CounterElapsed;
+				 real32 MCPF = (real32)CyclesElapsed / (1000.0f * 1000.0f);
+
+				 char Buffer[265];
+				 sprintf(Buffer, "%.02fms/f, %.02ff/s, %.02fmc/f\n", MSPerFrame, FPS, MCPF);
+				 OutputDebugStringA(Buffer);
+
+				 LastCounter = EndCounter;
+				 LastCycleCount = EndCycleCount;
 			 }	
 		 } 
 		 else
@@ -550,4 +579,3 @@ int CALLBACK WinMain(
 
 	return 0;
 }
-
