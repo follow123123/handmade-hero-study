@@ -39,26 +39,6 @@ RenderWeirdGradient(game_offscreen_buffer *Buffer, int BlueOffset, int GreenOffs
 	}
 }
 
-internal game_state *
-GameStartUp(void)
-{
-	game_state *GameState = new game_state;
-	if (GameState)
-	{
-		GameState->BlueOffset = 0;
-		GameState->GreenOffset = 0;
-		GameState->ToneHz = 256;
-	}
-
-	return GameState;
-}
-
-internal void
-GameShutdwon(game_state *GameState)
-{
-	delete GameState;
-}
-
 internal void
 GameUpdateAndRender(game_memory *Memory,
 					game_input *Input, game_offscreen_buffer *Buffer, 
