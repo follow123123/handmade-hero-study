@@ -18,6 +18,10 @@ GameOutputSound(game_sound_output_buffer *SoundBuffer, int ToneHz)
 		*SampleOut++ = SampleValue;
 
 		tSine += 2.0f * Pi32 / (real32)WavePeriod;
+		if (tSine > 2.0f * Pi32)
+		{
+		    tSine -= 2.0f * Pi32;
+		}
 	}
 }
 
@@ -40,59 +44,63 @@ RenderWeirdGradient(game_offscreen_buffer *Buffer, int BlueOffset, int GreenOffs
 }
 
 internal void
-GameUpdateAndRender(game_memory *Memory,
-					game_input *Input, game_offscreen_buffer *Buffer, 
-					game_sound_output_buffer *SoundBuffer)
+GameUpdateAndRender(game_memory *Memory, game_input *Input, game_offscreen_buffer *Buffer)
 {
-	Assert((&Input->Controllers[0].Terminator - &Input->Controllers[0].Buttons[0]) 
-		   == (ArrayCount(Input->Controllers[0].Buttons)));
-	Assert(sizeof(game_state) <= Memory->PermanentStorageSize);
+    Assert((&Input->Controllers[0].Terminator - &Input->Controllers[0].Buttons[0]) 
+	   == (ArrayCount(Input->Controllers[0].Buttons)));
+    Assert(sizeof(game_state) <= Memory->PermanentStorageSize);
 
-	game_state *GameState = (game_state *)Memory->PermanentStorage;
-	if (!Memory->IsInitialized)
+    game_state *GameState = (game_state *)Memory->PermanentStorage;
+    if (!Memory->IsInitialized)
+    {
+	char *Filename = __FILE__;
+
+	debug_read_file_result File = DEBUGPlatformReadEntireFile(Filename);
+	if (File.Contents)
 	{
-		char *Filename = __FILE__;
-
-		debug_read_file_result File = DEBUGPlatformReadEntireFile(Filename);
-		if (File.Contents)
-		{
-			DEBUGPlatformWriteEntireFile("test.out", File.ContentsSize, File.Contents);
-			DEBUGPlatformFreeFileMemory(File.Contents);
-		}
-
-		GameState->ToneHz = 256;
-
-		Memory->IsInitialized = true;
+	    DEBUGPlatformWriteEntireFile("test.out", File.ContentsSize, File.Contents);
+	    DEBUGPlatformFreeFileMemory(File.Contents);
 	}
 
-	for (int ControllerIndex = 0;
-		 ControllerIndex < ArrayCount(Input->Controllers);
-		 ++ControllerIndex)
-	{
-		game_controller_input *Controller = GetController(Input, ControllerIndex);
-		if (Controller->IsAnalog)
-		{
-			GameState->BlueOffset += (int)(4.0f * (Controller->StickAverageX));
-			GameState->ToneHz = 256 + (int)(128.0f * (Controller->StickAverageX));
-		}
-		else
-		{
-			if (Controller->MoveLeft.EndedDown)
-			{
-				GameState->BlueOffset -= 1;
-			}
-			if (Controller->MoveRight.EndedDown)
-			{
-				GameState->BlueOffset += 1;
-			}
-		}
+	GameState->ToneHz = 512;
 
-		if (Controller->ActionDown.EndedDown)
-		{
-			GameState->GreenOffset += 1;
-		}
+	Memory->IsInitialized = true;
+    }
+
+    for (int ControllerIndex = 0;
+	 ControllerIndex < ArrayCount(Input->Controllers);
+	 ++ControllerIndex)
+    {
+	game_controller_input *Controller = GetController(Input, ControllerIndex);
+	if (Controller->IsAnalog)
+	{
+	    GameState->BlueOffset += (int)(4.0f * (Controller->StickAverageX));
+	    GameState->ToneHz = 512 + (int)(128.0f * (Controller->StickAverageX));
+	}
+	else
+	{
+	    if (Controller->MoveLeft.EndedDown)
+	    {
+		GameState->BlueOffset -= 1;
+	    }
+	    if (Controller->MoveRight.EndedDown)
+	    {
+		GameState->BlueOffset += 1;
+	    }
 	}
 
-	GameOutputSound(SoundBuffer, GameState->ToneHz);
-	RenderWeirdGradient(Buffer, GameState->BlueOffset,  GameState->GreenOffset);
+	if (Controller->ActionDown.EndedDown)
+	{
+	    GameState->GreenOffset += 1;
+	}
+    }
+
+    RenderWeirdGradient(Buffer, GameState->BlueOffset,  GameState->GreenOffset);
+}
+
+internal void
+GameGetSoundSamples(game_memory *Memory, game_sound_output_buffer *SoundBuffer)
+{
+    game_state *GameState = (game_state *)Memory->PermanentStorage;
+    GameOutputSound(SoundBuffer, GameState->ToneHz);
 }
