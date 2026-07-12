@@ -82,11 +82,11 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     {
 	char *Filename = __FILE__;
 
-	debug_read_file_result File = Memory->DEBUGPlatformReadEntireFile(Filename);
+	debug_read_file_result File = Memory->DEBUGPlatformReadEntireFile(Thread, Filename);
 	if (File.Contents)
 	{
-	    Memory->DEBUGPlatformWriteEntireFile("test.out", File.ContentsSize, File.Contents);
-	    Memory->DEBUGPlatformFreeFileMemory(File.Contents);
+	    Memory->DEBUGPlatformWriteEntireFile(Thread, "test.out", File.ContentsSize, File.Contents);
+	    Memory->DEBUGPlatformFreeFileMemory(Thread, File.Contents);
 	}
 
 	GameState->ToneHz = 512;
@@ -135,6 +135,18 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     
     RenderWeirdGradient(Buffer, GameState->BlueOffset,  GameState->GreenOffset);
     RenderPlayer(Buffer, GameState->PlayerX, GameState->PlayerY);
+
+    RenderPlayer(Buffer, Input->MouseX, Input->MouseY);
+
+    for (int ButtonIndex = 0;
+	 ButtonIndex < ArrayCount(Input->MouseButtons);
+	 ++ButtonIndex)
+    {
+	if (Input->MouseButtons[ButtonIndex].EndedDown)
+	{
+	    RenderPlayer(Buffer, 10 + 20*ButtonIndex, 10);
+	}
+    }
 }
 
 extern "C" GAME_GET_SOUND_SAMPLES(GameGetSoundSamples)
@@ -142,14 +154,3 @@ extern "C" GAME_GET_SOUND_SAMPLES(GameGetSoundSamples)
     game_state *GameState = (game_state *)Memory->PermanentStorage;
     GameOutputSound(GameState, SoundBuffer, GameState->ToneHz);
 }
-
-#if HANDMADE_WIN32
-#include "windows.h"
-BOOL APIENTRY DllMain(
-    HANDLE hModule,// Handle to DLL module
-    DWORD ul_reason_for_call,// Reason for calling function
-    LPVOID lpReserved ) // Reserved
-{
-    return TRUE;
-}
-#endif
