@@ -5,7 +5,7 @@ GameOutputSound(game_state *GameState, game_sound_output_buffer *SoundBuffer, in
 {    
     int16 ToneVolume = 3000;
     int WavePeriod = SoundBuffer->SamplesPerSecond / ToneHz;
-
+    
     int16 *SampleOut = SoundBuffer->Samples;
     for (int SampleIndex = 0;
 	 SampleIndex < SoundBuffer->SampleCount;
