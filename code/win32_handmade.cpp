@@ -1111,11 +1111,11 @@ WinMain(
 		    *NewKeyboardController = {};
 		    NewKeyboardController->IsConnected = true;
 		    for (int ButtonIndex = 0;
-			 ButtonIndex < ArrayCount(NewKeyboardController->Buttons);
-			 ++ButtonIndex)
+				 ButtonIndex < ArrayCount(NewKeyboardController->Buttons);
+				 ++ButtonIndex)
 		    {
-			NewKeyboardController->Buttons[ButtonIndex].EndedDown 
-			    = OldKeyboardController->Buttons[ButtonIndex].EndedDown;
+				NewKeyboardController->Buttons[ButtonIndex].EndedDown 
+					= OldKeyboardController->Buttons[ButtonIndex].EndedDown;
 		    }
 
 		    Win32ProcessPendingMessages(&Win32State, NewKeyboardController);
