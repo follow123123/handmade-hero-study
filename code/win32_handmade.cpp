@@ -393,13 +393,20 @@ internal void
 Win32DisplayBufferInWindow(win32_offscreen_buffer *Buffer,
 			   HDC DeviceContext, int WindowWidth, int WindowHeight)
 {
+	int OffsetX = 10;
+	int OffsetY = 10;
+
+    PatBlt(DeviceContext, 0, 0, WindowWidth, OffsetY, BLACKNESS);
+    PatBlt(DeviceContext, 0, OffsetY + Buffer->Height, WindowWidth, WindowHeight, BLACKNESS);
+    PatBlt(DeviceContext, 0, 0, OffsetX, WindowHeight, BLACKNESS);
+    PatBlt(DeviceContext, OffsetX + Buffer->Width, 0, WindowWidth, WindowHeight, BLACKNESS);
+	
     StretchDIBits(DeviceContext,
-		  0, 0, Buffer->Width, Buffer->Height,
-		  0, 0, Buffer->Width, Buffer->Height,
-		  Buffer->Memory,
-		  &Buffer->Info,
-		  DIB_RGB_COLORS, SRCCOPY
-	);
+				  OffsetX, OffsetY, Buffer->Width, Buffer->Height,
+				  0, 0, Buffer->Width, Buffer->Height,
+				  Buffer->Memory,
+				  &Buffer->Info,
+				  DIB_RGB_COLORS, SRCCOPY);
 }
 
 internal LRESULT

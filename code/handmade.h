@@ -50,7 +50,33 @@ GetController(game_input *Input, int unsigned ControllerIndex)
     return Result;
 }
 
+struct canonical_position
+{
+	int32 TileMapX;
+	int32 TileMapY;
+
+	int32 TileX;
+	int32 TileY;
+
+	real32 TileRelX;
+	real32 TileRelY;
+};
+
+struct raw_position
+{
+	int32 TileMapX;
+	int32 TileMapY;
+
+	real32 X;
+	real32 Y;
+};
+	
 struct tile_map
+{
+	uint32 *Tiles;
+};
+
+struct world
 {
 	int32 CountX;
 	int32 CountY;
@@ -60,11 +86,6 @@ struct tile_map
 	real32 TileWidth;
 	real32 TileHeight;
 
-	uint32 *Tiles;
-};
-
-struct world
-{
 	int32 TileMapCountX;
 	int32 TileMapCountY;
 
@@ -74,6 +95,9 @@ struct world
 
 struct game_state
 {
+	int32 PlayerTileMapX;
+	int32 PlayerTileMapY;
+	
     real32 PlayerX;
     real32 PlayerY;
 };
