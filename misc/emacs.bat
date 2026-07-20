@@ -1,2 +1,3 @@
 @echo off
-"C:\Program Files (x86)\emacs-23.4\bin\runemacs.exe" -q -l w:\handmade\misc\.emacs
+cd /d W:\
+"C:\Program Files\Emacs\emacs-30.1\bin\runemacs"
