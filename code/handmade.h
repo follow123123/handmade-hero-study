@@ -50,45 +50,49 @@ GetController(game_input *Input, int unsigned ControllerIndex)
     return Result;
 }
 
-struct canonical_position
+struct tile_chunk_position
 {
-	int32 TileMapX;
-	int32 TileMapY;
+	uint32 TileChunkX;
+	uint32 TileChunkY;
 
-	int32 TileX;
-	int32 TileY;
+	uint32 RelTileX;
+	uint32 RelTileY;
+};
+
+struct world_position
+{
+	uint32 AbsTileX;
+	uint32 AbsTileY;
 
 	real32 TileRelX;
 	real32 TileRelY;
 };
 	
-struct tile_map
+struct tile_chunk
 {
 	uint32 *Tiles;
 };
 
 struct world
 {
-	int32 CountX;
-	int32 CountY;
-
-	real32 UpperLeftX;
-	real32 UpperLeftY;
-
+    uint32 ChunkShift;
+	uint32 ChunkMask;
+	uint32 ChunkDim;
+	
 	real32 TileSideInMeters;
-	real32 TileSideInPixels;
+	int32 TileSideInPixels;
 	real32 MetersToPixels;
 	
-	int32 TileMapCountX;
-	int32 TileMapCountY;
+	int32 TileChunkCountX;
+	int32 TileChunkCountY;
 
-	tile_map *TileMaps;
+	tile_chunk *TileChunks;
 };
 
 
 struct game_state
 {
-	canonical_position PlayerP;
+	world_position PlayerP;
 };
 
 #define HANDMADE_H
