@@ -61,15 +61,6 @@ struct canonical_position
 	real32 TileRelX;
 	real32 TileRelY;
 };
-
-struct raw_position
-{
-	int32 TileMapX;
-	int32 TileMapY;
-
-	real32 X;
-	real32 Y;
-};
 	
 struct tile_map
 {
@@ -86,6 +77,7 @@ struct world
 
 	real32 TileSideInMeters;
 	real32 TileSideInPixels;
+	real32 MetersToPixels;
 	
 	int32 TileMapCountX;
 	int32 TileMapCountY;
@@ -96,11 +88,7 @@ struct world
 
 struct game_state
 {
-	int32 PlayerTileMapX;
-	int32 PlayerTileMapY;
-	
-    real32 PlayerX;
-    real32 PlayerY;
+	canonical_position PlayerP;
 };
 
 #define HANDMADE_H
