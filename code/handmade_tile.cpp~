@@ -1,0 +1,92 @@
+inline tile_chunk *
+GetTileChunk(world *World, int32 TileChunkX, int32 TileChunkY)
+{
+	tile_chunk *TileChunk = 0;
+
+	if ((TileChunkX >= 0) && (TileChunkX < World->TileChunkCountX) &&
+		(TileChunkY >= 0) && (TileChunkY < World->TileChunkCountY))
+	{
+		TileChunk = &World->TileChunks[TileChunkY*World->TileChunkCountX + TileChunkX];		
+	}
+
+	return TileChunk;
+}
+
+inline uint32
+GetTileValueUnchecked(world *World, tile_chunk *TileChunk, uint32 TileX, uint32 TileY)
+{
+	Assert(TileChunk);
+	Assert(TileX < World->ChunkDim);
+	Assert(TileY < World->ChunkDim);
+	
+	uint32 TileValue = TileChunk->Tiles[TileY*World->ChunkDim + TileX];
+	return TileValue;
+}
+
+inline uint32
+GetTileValue(world *World, tile_chunk *TileChunk, uint32 TestTileX, uint32 TestTileY)
+{
+	uint32 TileChunkValue = 0;
+
+	if (TileChunk)
+	{
+		TileChunkValue = GetTileValueUnchecked(World, TileChunk, TestTileX, TestTileY);
+	}
+
+	return TileChunkValue;
+}
+
+inline void
+RecanonicalizeCoord(world *World, uint32 *Tile, real32 *TileRel)
+{
+	int32 Offset = RoundReal32ToInt32(*TileRel / World->TileSideInMeters);
+	*Tile += Offset;
+	*TileRel -= (real32)(Offset*World->TileSideInMeters);
+
+	Assert(*TileRel >= -0.5f*World->TileSideInMeters);
+	Assert(*TileRel <= 0.5f*World->TileSideInMeters);
+}
+
+inline world_position
+RecanonicalizePosition(world *World, world_position Pos)
+{
+	world_position Result = Pos;
+
+	RecanonicalizeCoord(World, &Result.AbsTileX, &Result.TileRelX);
+	RecanonicalizeCoord(World, &Result.AbsTileY, &Result.TileRelY);
+
+	return Result;
+}
+
+inline tile_chunk_position
+GetChunkPositionFor(world *World, uint32 AbsTileX, uint32 AbsTileY)
+{
+	tile_chunk_position Result;
+
+	Result.TileChunkX = AbsTileX >> World->ChunkShift;
+	Result.TileChunkY = AbsTileY >> World->ChunkShift;
+	Result.RelTileX = AbsTileX & World->ChunkMask;
+	Result.RelTileY = AbsTileY & World->ChunkMask;
+
+	return Result;
+}
+
+internal uint32
+GetTileValueFromAbs(world *World, uint32 AbsTileX, uint32 AbsTileY)
+{
+	tile_chunk_position ChunkPos = GetChunkPositionFor(World, AbsTileX, AbsTileY);
+	tile_chunk *TileChunk = GetTileChunk(World, ChunkPos.TileChunkX, ChunkPos.TileChunkY);
+	uint32 TileChunkValue = GetTileValue(World, TileChunk, ChunkPos.RelTileX, ChunkPos.RelTileY);
+
+	return TileChunkValue;
+}
+
+
+internal bool32
+IsWorldPointEmpty(world *World, world_position CanPos)
+{
+	uint32 TileChunkValue = GetTileValueFromAbs(World, CanPos.AbsTileX, CanPos.AbsTileY);
+	bool32 Empty = (TileChunkValue == 0);
+
+	return Empty;
+}
