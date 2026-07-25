@@ -49,15 +49,27 @@ GetController(game_input *Input, int unsigned ControllerIndex)
     return Result;
 }
 
-#include "handmade_intrinsics.h"
-#include "handmade_tile.h"
-
 struct memory_arena
 {
 	memory_index Size;
 	uint8 *Base;
 	memory_index Used;
 };
+
+#define PushStruct(Arena, type) _PushSize(Arena, sizeof(type))
+#define PushArray(Arena, Count, type) _PushSize(Arena, Count*sizeof(type))
+void *
+_PushSize(memory_arena *Arena, memory_index Size)
+{
+	Assert((Arena->Used + Size) <= Arena->Size);
+	void *Result = Arena->Base + Arena->Used;
+	Arena->Used += Size;
+
+	return Result;
+}
+
+#include "handmade_intrinsics.h"
+#include "handmade_tile.h"
 
 struct world
 {
