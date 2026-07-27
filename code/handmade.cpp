@@ -62,7 +62,7 @@ DrawRectangle(game_offscreen_buffer *Buffer,
     uint32 Color = ((RoundReal32ToUInt32(R * 255.0f) << 16) |
 					(RoundReal32ToUInt32(G * 255.0f) << 8) |
 					(RoundReal32ToUInt32(B * 255.0f)));			    
-	
+
     uint8 *Row = ((uint8 *)Buffer->Memory
 				  + MinX * Buffer->BytesPerPixel
 				  + MinY * Buffer->Pitch);
@@ -79,12 +79,36 @@ DrawRectangle(game_offscreen_buffer *Buffer,
     }
 }
 
-internal void
-InitializeArena(memory_arena *Arena, memory_index Size, uint8 *Base)
+#pragma pack(push, 1)
+struct bitmap_header
 {
-	Arena->Size = Size;
-	Arena->Base = Base;
-	Arena->Used = 0;
+	uint16 FileType;
+	uint32 FileSize;
+	uint16 Reserved1;
+	uint16 Reserved2;
+	uint32 BitmapOffset;
+	uint32 Size;
+	int32 Width;
+	int32 Height;
+	uint16 Planes; 
+	uint16 BitsPerPixel;
+};
+#pragma pack(pop)
+
+internal uint32 *
+DEBUGLoadBMP(thread_context *Thread, debug_platform_read_entire_file *ReadEntireFile, char *Filename)
+{
+	uint32 *Result = 0;
+
+	debug_read_file_result ReadResult = ReadEntireFile(Thread, Filename);
+	if (ReadResult.ContentsSize != 0)
+	{
+		bitmap_header *Header = (bitmap_header *)ReadResult.Contents;
+		uint32 *Pixels = (uint32 *)((uint8 *)ReadResult.Contents + Header->BitmapOffset);
+		Result = Pixels;
+	}
+
+	return Result;
 }
 
 extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
@@ -99,6 +123,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     game_state *GameState = (game_state *)Memory->PermanentStorage;
     if (!Memory->IsInitialized)
     {
+		GameState->PixelPointer = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_background.bmp");
+
 		GameState->PlayerP.AbsTileX = 1;
 		GameState->PlayerP.AbsTileY = 3;
 		GameState->PlayerP.TileRelX = 5.0f;
@@ -155,15 +181,17 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 				RandomChoice = RandomNumberTable[RandomNumberIndex++] % 3;
 			}
 
+			bool32 CreatedZDoor = false;
 			if (RandomChoice == 2)
 			{
+				CreatedZDoor = true;
 				if (AbsTileZ == 0)
 				{
 					DoorUp = true;
 				}
 				else
 				{
-					DoorDown = false;
+					DoorDown = true;
 				}
 			}
 			else if (RandomChoice == 1)
@@ -225,20 +253,15 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 			DoorLeft = DoorRight;
 			DoorBottom = DoorTop;
 
-			if (DoorUp)
+			if (CreatedZDoor)
 			{
-				DoorDown = true;
-				DoorUp = false;
-			}
-			else if (DoorDown)
-			{
-				DoorUp = true;
-				DoorDown = false;
+				DoorDown = !DoorDown;
+				DoorUp = !DoorUp;
 			}
 			else
 			{
 				DoorUp = false;
-				DoorBottom = false;
+				DoorDown = false;
 			}
 			
 			DoorRight = false;
@@ -255,7 +278,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 					AbsTileZ = 0;
 				}
 			}
-			if (RandomChoice == 1)
+			else if (RandomChoice == 1)
 			{
 				ScreenX += 1;
 			}
@@ -287,7 +310,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		}
 		else
 		{
-
 			real32 dPlayerX = 0.0f;
 			real32 dPlayerY = 0.0f;
 
@@ -332,6 +354,18 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 				IsTileMapPointEmpty(TileMap, PlayerLeft) &&
 				IsTileMapPointEmpty(TileMap, PlayerRight))
 			{
+				if (!AreOnSameTile(&NewPlayerP, &GameState->PlayerP))
+				{
+					uint32 NewTileValue = GetTileValue(TileMap, NewPlayerP);
+					if (NewTileValue == 3)
+					{
+						++NewPlayerP.AbsTileZ;
+					}
+					else if (NewTileValue == 4)
+					{
+						--NewPlayerP.AbsTileZ;
+					}
+				}
 				GameState->PlayerP = NewPlayerP;
 			}				
 		}
@@ -395,6 +429,18 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 				  PlayerLeft + PlayerWidth*MetersToPixels,
 				  PlayerTop + PlayerHeight*MetersToPixels,
 				  PlayerR, PlayerG, PlayerB);
+
+#if 0
+	uint32 *Source = GameState->PixelPointer;
+	uint32 *Dest = (uint32 *)Buffer->Memory;
+	for (int32 Y = 0; Y < Buffer->Height; ++Y)
+	{
+		for (int32 X = 0; X < Buffer->Width; ++X)
+		{
+			*Dest++ = *Source++;
+		}
+	}
+#endif	
 }
 
 extern "C" GAME_GET_SOUND_SAMPLES(GameGetSoundSamples)

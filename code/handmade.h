@@ -68,6 +68,14 @@ _PushSize(memory_arena *Arena, memory_index Size)
 	return Result;
 }
 
+internal void
+InitializeArena(memory_arena *Arena, memory_index Size, uint8 *Base)
+{
+	Arena->Size = Size;
+	Arena->Base = Base;
+	Arena->Used = 0;
+}
+
 #include "handmade_intrinsics.h"
 #include "handmade_tile.h"
 
@@ -82,6 +90,7 @@ struct game_state
 	world *World;
 	
 	tile_map_position PlayerP;
+	uint32 *PixelPointer;
 };
 
 #define HANDMADE_H
