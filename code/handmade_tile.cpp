@@ -1,25 +1,3 @@
-inline void
-RecanonicalizeCoord(tile_map *TileMap, uint32 *Tile, real32 *TileRel)
-{
-	int32 Offset = RoundReal32ToInt32(*TileRel / TileMap->TileSideInMeters);
-	*Tile += Offset;
-	*TileRel -= (real32)(Offset*TileMap->TileSideInMeters);
-
-	Assert(*TileRel >= -0.5f*TileMap->TileSideInMeters);
-	Assert(*TileRel <= 0.5f*TileMap->TileSideInMeters);
-}
-
-inline tile_map_position
-RecanonicalizePosition(tile_map *TileMap, tile_map_position Pos)
-{
-	tile_map_position Result = Pos;
-
-	RecanonicalizeCoord(TileMap, &Result.AbsTileX, &Result.TileRelX);
-	RecanonicalizeCoord(TileMap, &Result.AbsTileY, &Result.TileRelY);
-
-	return Result;
-}
-
 inline tile_chunk *
 GetTileChunk(tile_map *TileMap, uint32 TileChunkX, uint32 TileChunkY, uint32 TileChunkZ)
 {
@@ -148,6 +126,29 @@ SetTileValue(memory_arena *Arena, tile_map *TileMap,
 	SetTileValue(TileMap, TileChunk, ChunkPos.RelTileX, ChunkPos.RelTileY, TileValue);
 }
 
+inline void
+RecanonicalizeCoord(tile_map *TileMap, uint32 *Tile, real32 *TileRel)
+{
+	int32 Offset = RoundReal32ToInt32(*TileRel / TileMap->TileSideInMeters);
+	*Tile += Offset;
+	*TileRel -= (real32)(Offset*TileMap->TileSideInMeters);
+
+	Assert(*TileRel >= -0.5f*TileMap->TileSideInMeters);
+	Assert(*TileRel <= 0.5f*TileMap->TileSideInMeters);
+}
+
+inline tile_map_position
+RecanonicalizePosition(tile_map *TileMap, tile_map_position Pos)
+{
+	tile_map_position Result = Pos;
+
+	RecanonicalizeCoord(TileMap, &Result.AbsTileX, &Result.OffsetX);
+	RecanonicalizeCoord(TileMap, &Result.AbsTileY, &Result.OffsetY);
+
+	return Result;
+}
+
+
 inline bool32
 AreOnSameTile(tile_map_position *A, tile_map_position *B)
 {
@@ -157,4 +158,19 @@ AreOnSameTile(tile_map_position *A, tile_map_position *B)
 
 	return Result;
 }
-  
+
+inline tile_map_difference
+Subtract(tile_map *TileMap, tile_map_position *A, tile_map_position *B)
+{
+	tile_map_difference Result = {};
+
+    real32 dTileX = (real32)A->AbsTileX - (real32)B->AbsTileX;
+    real32 dTileY = (real32)A->AbsTileY - (real32)B->AbsTileY;
+    real32 dTileZ = (real32)A->AbsTileZ - (real32)B->AbsTileZ;
+	
+	Result.dX = TileMap->TileSideInMeters*dTileX + (A->OffsetX - B->OffsetX);
+	Result.dY = TileMap->TileSideInMeters*dTileY + (A->OffsetY - B->OffsetY);
+	Result.dZ = TileMap->TileSideInMeters*dTileZ;
+
+	return Result;
+}

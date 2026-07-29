@@ -1,27 +1,4 @@
-#include <stdint.h>
-#include <math.h>
-
-#define internal static
-#define local_persist static
-#define global_variable static
-
-#define Pi32 3.14159265359f
-
-typedef uint8_t uint8;
-typedef uint16_t uint16;
-typedef uint32_t uint32;
-typedef uint64_t uint64;
-
-typedef int8_t int8;
-typedef int16_t int16;
-typedef int32_t int32;
-typedef int64_t int64;
-typedef int32 bool32;
-
-typedef float real32;
-typedef double real64;
-
-#include "handmade.h"
+#include "handmade_platform.h"
 
 #include <windows.h>
 #include <stdio.h>
@@ -228,28 +205,34 @@ Win32GetLastWriteTime(char *Filename)
 }
 
 internal win32_game_code
-Win32LoadGameCode(char *SourceDLLName, char *TempDLLName)
+Win32LoadGameCode(char *SourceDLLName, char *TempDLLName, char *LockFileName)
 {
     win32_game_code Result = {};   
 
-    Result.DLLLastWriteTime = Win32GetLastWriteTime(SourceDLLName);
-    CopyFile(SourceDLLName, TempDLLName, FALSE);    
-    Result.GameCodeDLL = LoadLibrary(TempDLLName);
-    if (Result.GameCodeDLL)
-    {
-		Result.UpdateAndRender = (game_update_and_render *)GetProcAddress(Result.GameCodeDLL, "GameUpdateAndRender");
-		Result.GetSoundSamples = (game_get_sound_samples *)GetProcAddress(Result.GameCodeDLL, "GameGetSoundSamples");
+	WIN32_FILE_ATTRIBUTE_DATA Ignored;
+	if (!GetFileAttributesEx(LockFileName, GetFileExInfoStandard, &Ignored))
+	{
+		Result.DLLLastWriteTime = Win32GetLastWriteTime(SourceDLLName);
+	
+		CopyFile(SourceDLLName, TempDLLName, FALSE);
+	
+		Result.GameCodeDLL = LoadLibrary(TempDLLName);
+		if (Result.GameCodeDLL)
+		{
+			Result.UpdateAndRender = (game_update_and_render *)GetProcAddress(Result.GameCodeDLL, "GameUpdateAndRender");
+			Result.GetSoundSamples = (game_get_sound_samples *)GetProcAddress(Result.GameCodeDLL, "GameGetSoundSamples");
 
-		Result.IsValid = (Result.UpdateAndRender
-						  && Result.GetSoundSamples);
-    }
+			Result.IsValid = (Result.UpdateAndRender
+							  && Result.GetSoundSamples);
+		}
+	}
 
-    if (!Result.IsValid)
-    {
+	if (!Result.IsValid)
+	{
 		Result.UpdateAndRender = 0;
 		Result.GetSoundSamples = 0;
-    }
-
+	}
+	
     return Result;
 }
 
@@ -952,7 +935,11 @@ WinMain(
     char TempGameCodeDLLFullPath[WIN32_STATE_FILE_NAME_COUNT];
     Win32BuildEXEFilename(&Win32State, "handmade_temp.dll",
 						  sizeof(TempGameCodeDLLFullPath), TempGameCodeDLLFullPath);
-    
+
+	char GameCodeLockFullPath[WIN32_STATE_FILE_NAME_COUNT];
+    Win32BuildEXEFilename(&Win32State, "lock.tmp",
+						  sizeof(GameCodeLockFullPath), GameCodeLockFullPath);
+
     UINT DesiredSchedulerMS = 1;
     bool32 SleepIsGranular = (timeBeginPeriod(DesiredSchedulerMS) == TIMERR_NOERROR);
 	
@@ -1095,9 +1082,9 @@ WinMain(
 				DWORD AudioLatencyBytes = 0;
 				real32 AudioLatencySeconds = 0;		
 
-				char *SourceDLLName = "handmade.dll";
 				win32_game_code Game = Win32LoadGameCode(SourceGameCodeDLLFullPath,
-														 TempGameCodeDLLFullPath);
+														 TempGameCodeDLLFullPath,
+														 GameCodeLockFullPath);
 				uint32 LoadCounter = 0;
 		
 				uint64 LastCycleCount = __rdtsc();
@@ -1105,12 +1092,13 @@ WinMain(
 				{
 					NewInput->dtForFrame = TargetSecondsPerFrame;
 		  
-					FILETIME NewDLLWriteTime = Win32GetLastWriteTime(SourceDLLName);
+					FILETIME NewDLLWriteTime = Win32GetLastWriteTime(SourceGameCodeDLLFullPath);
 					if (CompareFileTime(&NewDLLWriteTime, &Game.DLLLastWriteTime) != 0)
 					{
 						Win32UnloadGameCode(&Game);
 						Game = Win32LoadGameCode(SourceGameCodeDLLFullPath,
-												 TempGameCodeDLLFullPath);
+												 TempGameCodeDLLFullPath,
+												 GameCodeLockFullPath);
 						LoadCounter = 0;
 					}
 		    
