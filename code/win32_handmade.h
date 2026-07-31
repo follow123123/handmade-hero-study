@@ -24,7 +24,6 @@ struct win32_sound_output
     int BytesPerSample;
     int SecondaryBufferSize;
     DWORD SafetyBytes;
-    real32 tSine;
 };
 
 struct win32_debug_time_marker
