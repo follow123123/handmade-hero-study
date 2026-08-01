@@ -40,6 +40,7 @@ InitializeArena(memory_arena *Arena, memory_index Size, uint8 *Base)
 	Arena->Used = 0;
 }
 
+#include "handmade_math.h"
 #include "handmade_intrinsics.h"
 #include "handmade_tile.h"
 

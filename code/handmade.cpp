@@ -290,8 +290,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		
 		GameState->PlayerP.AbsTileX = 1;
 		GameState->PlayerP.AbsTileY = 3;
-		GameState->PlayerP.OffsetX = 5.0f;
-		GameState->PlayerP.OffsetY = 5.0f;
+		GameState->PlayerP.Offset.X = 5.0f;
+		GameState->PlayerP.Offset.Y = 5.0f;
 
 		InitializeArena(&GameState->WorldArena, Memory->PermanentStorageSize - sizeof(game_state),
 						(uint8 *)Memory->PermanentStorage + sizeof(game_state));
@@ -473,48 +473,52 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		}
 		else
 		{
-			real32 dPlayerX = 0.0f;
-			real32 dPlayerY = 0.0f;
+			vec2 dPlayer = {};
 
 			if (Controller->MoveUp.EndedDown)
 			{
 				GameState->HeroFacingDirection = 1;
-				dPlayerY = 1.0f;
+				dPlayer.Y = 1.0f;
 			}
 			if (Controller->MoveDown.EndedDown)
 			{
 				GameState->HeroFacingDirection = 3;
-				dPlayerY = -1.0f;
+				dPlayer.Y = -1.0f;
 			}
 			if (Controller->MoveLeft.EndedDown)
 			{
 				GameState->HeroFacingDirection = 2;
-				dPlayerX = -1.0f;
+				dPlayer.X = -1.0f;
 			}
 			if (Controller->MoveRight.EndedDown)
 			{
 				GameState->HeroFacingDirection = 0;
-				dPlayerX = 1.0f;
+				dPlayer.X = 1.0f;
 			}
 			real32 PlayerSpeed = 2.0f;
 			if (Controller->ActionUp.EndedDown)
 			{
 				PlayerSpeed = 12.0f;
 			}
-			dPlayerX *= PlayerSpeed;
-			dPlayerY *= PlayerSpeed;
+
+			if ((dPlayer.X != 0.0f) && (dPlayer.Y != 0.0f))
+			{
+				dPlayer.X *= 0.7071067811865475;
+				dPlayer.Y *= 0.7071067811865475;
+			}
+			
+			dPlayer *= PlayerSpeed;
 			
 			tile_map_position NewPlayerP = GameState->PlayerP;
-			NewPlayerP.OffsetX += dPlayerX*Input->dtForFrame;
-			NewPlayerP.OffsetY += dPlayerY*Input->dtForFrame;
+			NewPlayerP.Offset += dPlayer*Input->dtForFrame;
 			NewPlayerP = RecanonicalizePosition(TileMap, NewPlayerP);
 				
 			tile_map_position PlayerLeft = NewPlayerP;
-			PlayerLeft.OffsetX -= 0.5f*PlayerWidth;
+			PlayerLeft.Offset.X -= 0.5f*PlayerWidth;
 			PlayerLeft = RecanonicalizePosition(TileMap, PlayerLeft);
 
 			tile_map_position PlayerRight = NewPlayerP;
-			PlayerRight.OffsetX += 0.5f*PlayerWidth;
+			PlayerRight.Offset.X += 0.5f*PlayerWidth;
 			PlayerRight = RecanonicalizePosition(TileMap, PlayerRight);
 			
 			if (IsTileMapPointEmpty(TileMap, NewPlayerP) &&
@@ -539,19 +543,19 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 			GameState->CameraP.AbsTileZ = GameState->PlayerP.AbsTileZ;
 
 			tile_map_difference Diff = Subtract(TileMap, &GameState->PlayerP, &GameState->CameraP);
-			if (Diff.dX > (9.0f*TileMap->TileSideInMeters))
+			if (Diff.dXY.X > (9.0f*TileMap->TileSideInMeters))
 			{
 				GameState->CameraP.AbsTileX += 17;
 			}
-			if (Diff.dX < -(9.0f*TileMap->TileSideInMeters))
+			if (Diff.dXY.X < -(9.0f*TileMap->TileSideInMeters))
 			{
 				GameState->CameraP.AbsTileX -= 17;
 			}
-			if (Diff.dY > (5.0f*TileMap->TileSideInMeters))
+			if (Diff.dXY.Y > (5.0f*TileMap->TileSideInMeters))
 			{
 				GameState->CameraP.AbsTileY += 9;
 			}
-			if (Diff.dY < -(5.0f*TileMap->TileSideInMeters))
+			if (Diff.dXY.Y < -(5.0f*TileMap->TileSideInMeters))
 			{
 				GameState->CameraP.AbsTileY -= 9;
 			}
@@ -593,8 +597,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 					Gray = 0.0f;
 				}
 				
-				real32 CenX = ScreenCenterX - GameState->CameraP.OffsetX*MetersToPixels + ((real32)RelColumn)*TileSideInPixels;
-				real32 CenY = ScreenCenterY + GameState->CameraP.OffsetY*MetersToPixels - ((real32)RelRow)*TileSideInPixels;
+				real32 CenX = ScreenCenterX - GameState->CameraP.Offset.X*MetersToPixels + ((real32)RelColumn)*TileSideInPixels;
+				real32 CenY = ScreenCenterY + GameState->CameraP.Offset.Y*MetersToPixels - ((real32)RelRow)*TileSideInPixels;
 				real32 MinX = CenX - 0.5f*TileSideInPixels;
 				real32 MinY = CenY - 0.5f*TileSideInPixels;
 				real32 MaxX = CenX + 0.5f*TileSideInPixels;
@@ -609,8 +613,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     real32 PlayerR = 1.0f;
     real32 PlayerG = 1.0f;
     real32 PlayerB = 0.0f;
-	real32 PlayerGroundPointX = ScreenCenterX + Diff.dX*MetersToPixels;
-	real32 PlayerGroundPointY = ScreenCenterY - Diff.dY*MetersToPixels;
+	real32 PlayerGroundPointX = ScreenCenterX + Diff.dXY.X*MetersToPixels;
+	real32 PlayerGroundPointY = ScreenCenterY - Diff.dXY.Y*MetersToPixels;
 	real32 PlayerLeft = PlayerGroundPointX - 0.5f*PlayerWidth*MetersToPixels;
 	real32 PlayerTop = PlayerGroundPointY - PlayerHeight*MetersToPixels;
 	
