@@ -85,4 +85,12 @@ operator*=(vec2 &B, real32 A)
 	return B;
 }
 
+inline real32
+Square(real32 A)
+{
+	real32 Result = A*A;
+
+	return Result;
+}
+
 #endif /* HANDMADE_MATH_H */

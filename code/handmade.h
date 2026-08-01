@@ -72,6 +72,7 @@ struct game_state
 	
 	tile_map_position PlayerP;
 	tile_map_position CameraP;
+	vec2 dPlayerP;
 	
 	loaded_bitmap Backdrop;
 	hero_bitmaps HeroBitmaps[4];
