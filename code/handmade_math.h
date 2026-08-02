@@ -93,4 +93,12 @@ Square(real32 A)
 	return Result;
 }
 
+inline real32
+Inner(vec2 A, vec2 B)
+{
+	real32 Result = A.X*B.X + A.Y*B.Y;
+
+	return Result;
+}
+
 #endif /* HANDMADE_MATH_H */
