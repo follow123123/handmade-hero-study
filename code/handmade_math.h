@@ -101,4 +101,11 @@ Inner(vec2 A, vec2 B)
 	return Result;
 }
 
+inline real32
+LengthSq(vec2 A)
+{
+	real32 Result = Inner(A, A);
+	
+	return Result;
+}
 #endif /* HANDMADE_MATH_H */

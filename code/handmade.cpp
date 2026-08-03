@@ -462,7 +462,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
 	real32 LowerLeftX = -(real32)TileSideInPixels/2;
 	real32 LowerLeftY = (real32)Buffer->Height;
-	
+
+	tile_map_position OldPlayerP = GameState->PlayerP;
     for (int ControllerIndex = 0;
 		 ControllerIndex < ArrayCount(Input->Controllers);
 		 ++ControllerIndex)
@@ -511,13 +512,13 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 			ddPlayer += -1.5f*GameState->dPlayerP;
 			
 			tile_map_position NewPlayerP = GameState->PlayerP;
-			NewPlayerP.Offset = (0.5f*ddPlayer*Square(Input->dtForFrame)
-								 + GameState->dPlayerP*Input->dtForFrame
-								 + NewPlayerP.Offset);
-			GameState->dPlayerP = GameState->dPlayerP + ddPlayer*Input->dtForFrame;
-			
+			vec2 PlayerDelta = (0.5f*ddPlayer*Square(Input->dtForFrame)
+								+ GameState->dPlayerP*Input->dtForFrame);
+			NewPlayerP.Offset += PlayerDelta;
+			GameState->dPlayerP = GameState->dPlayerP + ddPlayer*Input->dtForFrame;			
 			NewPlayerP = RecanonicalizePosition(TileMap, NewPlayerP);
 				
+#if 1
 			tile_map_position PlayerLeft = NewPlayerP;
 			PlayerLeft.Offset.X -= 0.5f*PlayerWidth;
 			PlayerLeft = RecanonicalizePosition(TileMap, PlayerLeft);
@@ -568,19 +569,50 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 			}
 			else
 			{
-				if (!AreOnSameTile(&NewPlayerP, &GameState->PlayerP))
+				GameState->PlayerP = NewPlayerP;
+			}
+#else
+			uint32 MinTileX = 0;
+			uint32 MinTileY = 0;
+			uint32 OnePastMaxTileX = 0;
+			uint32 OnePastMaxTileY = 0;
+			uint32 AbsTileZ = GameState->AbsTileZ;
+			tile_map_position BestPlayerP = GameState->PlayerP;
+			real32 BestDistanceSq = LengthSq(PlayerDelta);
+			for (uint32 AbsTileY = MinTileY; AbsTileY != OnePastMaxTileY; ++AbsTileY)
+			{				
+				for (uint32 AbsTileX = MinTileX; AbsTileX != OnePastMaxTileX; ++AbsTileX)
 				{
-					uint32 NewTileValue = GetTileValue(TileMap, NewPlayerP);
-					if (NewTileValue == 3)
+					tile_map_position TestTileP = CenteredTilePoint(AbsTileX, AbsTileY, AbsTileZ);
+					uint32 TileValue = GetTileValue(TileMap, TestTileP);
+					if (IsTileValueEmpty(TileValue))
 					{
-						++NewPlayerP.AbsTileZ;
-					}
-					else if (NewTileValue == 4)
-					{
-						--NewPlayerP.AbsTileZ;
+						vec2 MinCorner = -0.5f*vec2{TileMap->TileSideInMeters, TileMap->TileSideInMeters};
+						vec2 MaxCorner = 0.5f*vec2{TileMap->TileSideInMeters, TileMap->TileSideInMeters};
+
+						tile_map_difference RelNewPlayerP = Subtract(TileMap, &TestTileP, &NewPlayerP);
+						vec2 TestP = ClosestPointInRectangle(MinCorner, MaxCorner, RelNewPlayerP);
+						TestDistanceSq = ;
+						if (TestDistanceSq < BestDistanceSq)
+						{
+							BestPlayerP = ;
+							BestDistanceSq = ;
+						}
 					}
 				}
-				GameState->PlayerP = NewPlayerP;
+			}
+#endif
+			if (!AreOnSameTile(&OldPlayerP, &GameState->PlayerP))
+			{
+				uint32 NewTileValue = GetTileValue(TileMap, GameState->PlayerP);
+				if (NewTileValue == 3)
+				{
+					++GameState->PlayerP.AbsTileZ;
+				}
+				else if (NewTileValue == 4)
+				{
+					--GameState->PlayerP.AbsTileZ;
+				}
 			}
 
 			GameState->CameraP.AbsTileZ = GameState->PlayerP.AbsTileZ;
