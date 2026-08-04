@@ -2,6 +2,13 @@
 
 #include "math.h"
 
+inline real32
+AbsoluteValue(real32 Real32)
+{
+	real32 Result = (real32)fabs(Real32);
+	return Result;
+}
+
 inline int32
 RoundReal32ToInt32(real32 Real32)
 {

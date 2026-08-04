@@ -65,18 +65,29 @@ struct hero_bitmaps
 	loaded_bitmap Torso; 
 };
 
+struct entity
+{
+	bool32 Exists;
+	tile_map_position P;
+	vec2 dP;	
+	uint32 FacingDirection;
+	real32 Width, Height;
+};
+
 struct game_state
 {
 	memory_arena WorldArena;
 	world *World;
 	
-	tile_map_position PlayerP;
+	uint32 CameraFollowingEntityIndex;
 	tile_map_position CameraP;
-	vec2 dPlayerP;
 	
+	uint32 PlayerIndexForController[ArrayCount(((game_input *)0)->Controllers)];
+	uint32 EntityCount;
+	entity Entities[256];
+
 	loaded_bitmap Backdrop;
-	hero_bitmaps HeroBitmaps[4];
-	int HeroFacingDirection;	
+	hero_bitmaps HeroBitmaps[4];	
 };
 
 #define HANDMADE_H
