@@ -201,15 +201,20 @@ DEBUGLoadBMP(thread_context *Thread, debug_platform_read_entire_file *ReadEntire
 		uint32 BlueMask = Header->BlueMask;
 		uint32 AlphaMask = ~(RedMask | GreenMask | BlueMask);
 
-		bit_scan_result RedShift = FindLeastSignificantSetBit(RedMask);
-		bit_scan_result GreenShift = FindLeastSignificantSetBit(GreenMask);
-		bit_scan_result BlueShift = FindLeastSignificantSetBit(BlueMask);
-		bit_scan_result AlphaShift = FindLeastSignificantSetBit(AlphaMask);		
+		bit_scan_result RedScan = FindLeastSignificantSetBit(RedMask);
+		bit_scan_result GreenScan = FindLeastSignificantSetBit(GreenMask);
+		bit_scan_result BlueScan = FindLeastSignificantSetBit(BlueMask);
+		bit_scan_result AlphaScan = FindLeastSignificantSetBit(AlphaMask);		
 
-		Assert(RedShift.Found);
-		Assert(GreenShift.Found);
-		Assert(BlueShift.Found);
-		Assert(AlphaShift.Found);
+		Assert(RedScan.Found);
+		Assert(GreenScan.Found);
+		Assert(BlueScan.Found);
+		Assert(AlphaScan.Found);
+
+		int32 RedShift = 16 - (int32)RedScan.Index;
+		int32 GreenShift = 8 - (int32)GreenScan.Index;
+		int32 BlueShift = 0 - (int32)BlueScan.Index;
+		int32 AlphaShift = 24 - (int32)AlphaScan.Index;
 					
 		uint32 *SourceDest = Pixels;
 		for (int32 Y = 0; Y < Header->Height; ++Y)
@@ -217,10 +222,11 @@ DEBUGLoadBMP(thread_context *Thread, debug_platform_read_entire_file *ReadEntire
 			for (int32 X = 0; X < Header->Width; ++X)
 			{
 				uint32 C = *SourceDest;
-				*SourceDest++ = ((((C >> AlphaShift.Index) & 0xFF) << 24) |
-								 (((C >> RedShift.Index) & 0xFF) << 16) |
-								 (((C >> GreenShift.Index) & 0xFF) << 8) |
-								 (((C >> BlueShift.Index) & 0xFF) << 0));
+
+                *SourceDest++ = (RotateLeft(C & RedMask, RedShift) |
+                                 RotateLeft(C & GreenMask, GreenShift) |
+                                 RotateLeft(C & BlueMask, BlueShift) |
+                                 RotateLeft(C & AlphaMask, AlphaShift));
 			}
 		}
 	}
@@ -277,11 +283,12 @@ MovePlayer(game_state *GameState, entity *Entity, real32 dt, vec2 ddP)
 {
 	tile_map *TileMap = GameState->World->TileMap;
 
-	if ((ddP.X != 0.0f) && (ddP.Y != 0.0f))
+	real32 ddPLength = LengthSq(ddP);
+	if (ddPLength > 1.0f)
 	{
-		ddP *= 0.7071067811865475;
+		ddP *= (1.0f / SquareRoot(ddPLength));
 	}
-
+	
 	real32 PlayerSpeed = 50.0f;
 	ddP *= PlayerSpeed;
 
@@ -349,32 +356,29 @@ MovePlayer(game_state *GameState, entity *Entity, real32 dt, vec2 ddP)
 		Entity->P = NewPlayerP;
 	}
 #else
-	uint32 MinTileX = 0;
-	uint32 MinTileY = 0;
-	uint32 OnePastMaxTileX = 0;
-	uint32 OnePastMaxTileY = 0;
-	uint32 AbsTileZ = GameState->AbsTileZ;
-	tile_map_position BestPlayerP = Entity->P;
-	real32 BestDistanceSq = LengthSq(PlayerDelta);
+	uint32 MinTileX = Minimum(OldPlayerP.AbsTileX, NewPlayerP.AbsTileX);
+	uint32 MinTileY = Minimun(OldPlayerP.AbsTileY, NewPlayerP.AbsTileY);
+	uint32 OnePastMaxTileX = Maximun(OldPlayerP.AbsTileX, NewPlayerP.AbsTileX) + 1;
+	uint32 OnePastMaxTileY = Maximun(OldPlayerP.AbsTileY, NewPlayerP.AbsTileY) + 1;
+	
+	uint32 AbsTileZ = Entity->P.AbsTileZ;
+	real32 tMin = 1.0f;
 	for (uint32 AbsTileY = MinTileY; AbsTileY != OnePastMaxTileY; ++AbsTileY)
 	{				
 		for (uint32 AbsTileX = MinTileX; AbsTileX != OnePastMaxTileX; ++AbsTileX)
 		{
 			tile_map_position TestTileP = CenteredTilePoint(AbsTileX, AbsTileY, AbsTileZ);
 			uint32 TileValue = GetTileValue(TileMap, TestTileP);
-			if (IsTileValueEmpty(TileValue))
+			if (!IsTileValueEmpty(TileValue))
 			{
 				vec2 MinCorner = -0.5f*vec2{TileMap->TileSideInMeters, TileMap->TileSideInMeters};
 				vec2 MaxCorner = 0.5f*vec2{TileMap->TileSideInMeters, TileMap->TileSideInMeters};
 
 				tile_map_difference RelNewPlayerP = Subtract(TileMap, &TestTileP, &NewPlayerP);
-				vec2 TestP = ClosestPointInRectangle(MinCorner, MaxCorner, RelNewPlayerP);
-				TestDistanceSq = ;
-				if (TestDistanceSq < BestDistanceSq)
-				{
-					BestPlayerP = ;
-					BestDistanceSq = ;
-				}
+				vec2 Rel = RelNewPlayerP.dXY;
+
+				tResult = (WallX - Rel.X) / PlayerDelta.X;
+				TestWall(MinCorner.X, MinCorner.Y, MaxCorner.X, MaxCorner.Y, Rel.X);
 			}
 		}
 	}
