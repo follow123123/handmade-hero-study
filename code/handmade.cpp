@@ -279,6 +279,25 @@ AddEntity(game_state *GameState)
 }
 
 internal void
+TestWall(real32 WallX, real32 RelX, real32 RelY, real32 PlayerDeltaX, real32 PlayerDeltaY,
+		 real32 *tMin, real32 MinY, real32 MaxY)
+{
+	real32 tEpsilon = 0.0001f;
+	if (PlayerDeltaX != 0.0f)
+	{
+		real32 tResult = (WallX - RelX) / PlayerDeltaX;
+		real32 Y = RelY + PlayerDeltaY*tResult;
+		if ((tResult >= 0.0f) && (tResult < *tMin))
+		{
+			if ((Y >= MinY) && (Y <= MaxY))
+			{
+				*tMin = Maximum(0.0f, tResult - tEpsilon);
+			}
+		}
+	}
+}
+
+internal void
 MovePlayer(game_state *GameState, entity *Entity, real32 dt, vec2 ddP)
 {
 	tile_map *TileMap = GameState->World->TileMap;
@@ -295,14 +314,14 @@ MovePlayer(game_state *GameState, entity *Entity, real32 dt, vec2 ddP)
 	ddP += -8.0f*Entity->dP;
 	
 	tile_map_position OldPlayerP = Entity->P;
-	tile_map_position NewPlayerP = OldPlayerP;
 	vec2 PlayerDelta = (0.5f*ddP*Square(dt)
 						+ Entity->dP*dt);
-	NewPlayerP.Offset += PlayerDelta;
 	Entity->dP = Entity->dP + ddP*dt;			
+	tile_map_position NewPlayerP = OldPlayerP;
+	NewPlayerP.Offset += PlayerDelta;
 	NewPlayerP = RecanonicalizePosition(TileMap, NewPlayerP);
 				
-#if 1
+#if 0
 	tile_map_position PlayerLeft = NewPlayerP;
 	PlayerLeft.Offset.X -= 0.5f*Entity->Width;
 	PlayerLeft = RecanonicalizePosition(TileMap, PlayerLeft);
@@ -357,9 +376,9 @@ MovePlayer(game_state *GameState, entity *Entity, real32 dt, vec2 ddP)
 	}
 #else
 	uint32 MinTileX = Minimum(OldPlayerP.AbsTileX, NewPlayerP.AbsTileX);
-	uint32 MinTileY = Minimun(OldPlayerP.AbsTileY, NewPlayerP.AbsTileY);
-	uint32 OnePastMaxTileX = Maximun(OldPlayerP.AbsTileX, NewPlayerP.AbsTileX) + 1;
-	uint32 OnePastMaxTileY = Maximun(OldPlayerP.AbsTileY, NewPlayerP.AbsTileY) + 1;
+	uint32 MinTileY = Minimum(OldPlayerP.AbsTileY, NewPlayerP.AbsTileY);
+	uint32 OnePastMaxTileX = Maximum(OldPlayerP.AbsTileX, NewPlayerP.AbsTileX) + 1;
+	uint32 OnePastMaxTileY = Maximum(OldPlayerP.AbsTileY, NewPlayerP.AbsTileY) + 1;
 	
 	uint32 AbsTileZ = Entity->P.AbsTileZ;
 	real32 tMin = 1.0f;
@@ -374,14 +393,26 @@ MovePlayer(game_state *GameState, entity *Entity, real32 dt, vec2 ddP)
 				vec2 MinCorner = -0.5f*vec2{TileMap->TileSideInMeters, TileMap->TileSideInMeters};
 				vec2 MaxCorner = 0.5f*vec2{TileMap->TileSideInMeters, TileMap->TileSideInMeters};
 
-				tile_map_difference RelNewPlayerP = Subtract(TileMap, &TestTileP, &NewPlayerP);
-				vec2 Rel = RelNewPlayerP.dXY;
+				tile_map_difference RelOldPlayerP = Subtract(TileMap, &OldPlayerP, &TestTileP);
+				vec2 Rel = RelOldPlayerP.dXY;
 
-				tResult = (WallX - Rel.X) / PlayerDelta.X;
-				TestWall(MinCorner.X, MinCorner.Y, MaxCorner.X, MaxCorner.Y, Rel.X);
+				TestWall(MinCorner.X, Rel.X, Rel.Y, PlayerDelta.X, PlayerDelta.Y,
+						 &tMin, MinCorner.Y, MaxCorner.Y);
+				TestWall(MaxCorner.X, Rel.X, Rel.Y, PlayerDelta.X, PlayerDelta.Y,
+						 &tMin, MinCorner.Y, MaxCorner.Y);
+                TestWall(MinCorner.Y, Rel.Y, Rel.X, PlayerDelta.Y, PlayerDelta.X,
+                         &tMin, MinCorner.X, MaxCorner.X);
+                TestWall(MaxCorner.Y, Rel.Y, Rel.X, PlayerDelta.Y, PlayerDelta.X,
+                         &tMin, MinCorner.X, MaxCorner.X);
 			}
 		}
 	}
+
+	NewPlayerP = OldPlayerP;
+	NewPlayerP.Offset += tMin*PlayerDelta;
+	RecanonicalizePosition(TileMap, NewPlayerP);
+	Entity->P = NewPlayerP;
+	
 #endif
 
 	if (!AreOnSameTile(&OldPlayerP, &Entity->P))
@@ -754,8 +785,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 				vec2 TileSide = {0.5f*TileSideInPixels, 0.5f*TileSideInPixels};
 				vec2 Cen = {ScreenCenterX - GameState->CameraP.Offset.X*MetersToPixels + ((real32)RelColumn)*TileSideInPixels,
 					        ScreenCenterY + GameState->CameraP.Offset.Y*MetersToPixels - ((real32)RelRow)*TileSideInPixels};
-				vec2 Min = Cen - TileSide;
-				vec2 Max = Cen + TileSide;
+				vec2 Min = Cen - 0.9f*TileSide;
+				vec2 Max = Cen + 0.9f*TileSide;
 				DrawRectangle(Buffer, Min, Max, Gray, Gray, Gray);
 			}
 		}
