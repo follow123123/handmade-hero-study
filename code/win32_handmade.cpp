@@ -1275,7 +1275,7 @@ WinMain(
 									&OldController->MoveDown, 1,
 									&NewController->MoveDown);
 								Win32ProcessXInputDigitalButton(
-									(NewController->StickAverageX < Threshold) ? 1 : 0,
+									(NewController->StickAverageX > Threshold) ? 1 : 0,
 									&OldController->MoveUp, 1,
 									&NewController->MoveUp);
 
