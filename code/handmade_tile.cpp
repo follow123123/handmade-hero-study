@@ -38,19 +38,6 @@ SetTileValueUnchecked(tile_map *TileMap, tile_chunk *TileChunk, uint32 TileX, ui
 	TileChunk->Tiles[TileY*TileMap->ChunkDim + TileX] = TileValue;
 }
 
-inline uint32
-GetTileValue(tile_map *TileMap, tile_chunk *TileChunk, uint32 TestTileX, uint32 TestTileY)
-{
-	uint32 TileChunkValue = 0;
-
-	if (TileChunk && TileChunk->Tiles)
-	{
-		TileChunkValue = GetTileValueUnchecked(TileMap, TileChunk, TestTileX, TestTileY);
-	}
-
-	return TileChunkValue;
-}
-
 inline void
 SetTileValue(tile_map *TileMap, tile_chunk *TileChunk, uint32 TestTileX, uint32 TestTileY,
 			 uint32 TileValue)
@@ -73,6 +60,19 @@ GetChunkPositionFor(tile_map *TileMap, uint32 AbsTileX, uint32 AbsTileY, uint32 
 	Result.RelTileY = AbsTileY & TileMap->ChunkMask;
 
 	return Result;
+}
+
+inline uint32
+GetTileValue(tile_map *TileMap, tile_chunk *TileChunk, uint32 TestTileX, uint32 TestTileY)
+{
+	uint32 TileChunkValue = 0;
+
+	if (TileChunk && TileChunk->Tiles)
+	{
+		TileChunkValue = GetTileValueUnchecked(TileMap, TileChunk, TestTileX, TestTileY);
+	}
+
+	return TileChunkValue;
 }
 
 internal uint32
@@ -140,21 +140,21 @@ RecanonicalizeCoord(tile_map *TileMap, uint32 *Tile, real32 *TileRel)
 	*Tile += Offset;
 	*TileRel -= (real32)(Offset*TileMap->TileSideInMeters);
 
-	Assert(*TileRel > -0.5001f*TileMap->TileSideInMeters);
-	Assert(*TileRel < 0.5001f*TileMap->TileSideInMeters);
+	Assert(*TileRel > -0.5f*TileMap->TileSideInMeters);
+	Assert(*TileRel < 0.5f*TileMap->TileSideInMeters);
 }
 
 inline tile_map_position
-RecanonicalizePosition(tile_map *TileMap, tile_map_position Pos)
+MapIntoTileSpace(tile_map *TileMap, tile_map_position CameraP, vec2 Offset)
 {
-	tile_map_position Result = Pos;
-
+	tile_map_position Result = CameraP;
+	
+	Result._Offset += Offset;
 	RecanonicalizeCoord(TileMap, &Result.AbsTileX, &Result._Offset.X);
 	RecanonicalizeCoord(TileMap, &Result.AbsTileY, &Result._Offset.Y);
 
-	return Result;
+	return Result;	
 }
-
 
 inline bool32
 AreOnSameTile(tile_map_position *A, tile_map_position *B)
@@ -193,11 +193,3 @@ CenteredTilePoint(uint32 AbsTileX, uint32 AbsTileY, uint32 AbsTileZ)
 	return Result;
 }
 
-inline tile_map_position
-Offset(tile_map *TileMap, tile_map_position P, vec2 Offset)
-{
-	P._Offset += Offset;
-	P = RecanonicalizePosition(TileMap, P);
-
-	return P;
-}
