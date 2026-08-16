@@ -1,16 +1,5 @@
 #if !defined(HANDMADE_H)
 
-/*
- * HANDMADE_INTERNAL:
- *	0 - Build for public release
- *	1 = Build for developer only
- * 
- * HANDMADE_SLOW:
- *	0 - No slow code allowed
- *	1 - Slow code allowed
- *
- */
-
 #include "handmade_platform.h"
 
 #define Minimum(A, B) ((A < B) ? (A) : (B))
