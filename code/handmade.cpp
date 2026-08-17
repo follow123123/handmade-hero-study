@@ -629,9 +629,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		InitializeArena(&GameState->WorldArena, Memory->PermanentStorageSize - sizeof(game_state),
 						(uint8 *)Memory->PermanentStorage + sizeof(game_state));
 
-		GameState->World = (world *)PushStruct(&GameState->WorldArena, world);
+		GameState->World = PushStruct(&GameState->WorldArena, world);
 		world *World = GameState->World;
-		World->TileMap = (tile_map *)PushStruct(&GameState->WorldArena, tile_map);
+		World->TileMap = PushStruct(&GameState->WorldArena, tile_map);
 		
 		tile_map *TileMap = World->TileMap;
 		InitializeTileMap(TileMap, 1.4f);

@@ -26,9 +26,9 @@ GetTileChunk(tile_map *TileMap, int32 TileChunkX, int32 TileChunkY, int32 TileCh
 			break;
 		}
 
-		if (Arena && (Chunk->TileChunkX != 0) && (!Chunk->NextInHash))
+		if (Arena && (Chunk->TileChunkX != TILE_CHUNK_UNINITIALIZED) && (!Chunk->NextInHash))
 		{
-			Chunk->NextInHash = (tile_chunk *)PushStruct(Arena, tile_chunk);
+			Chunk->NextInHash = PushStruct(Arena, tile_chunk);
 			Chunk = Chunk->NextInHash;
 			Chunk->TileChunkX = TILE_CHUNK_UNINITIALIZED;
 		}
@@ -41,6 +41,7 @@ GetTileChunk(tile_map *TileMap, int32 TileChunkX, int32 TileChunkY, int32 TileCh
 			Chunk->TileChunkY = TileChunkY;
 			Chunk->TileChunkZ = TileChunkZ;
 
+			Chunk->Tiles = PushArray(Arena, TileCount, uint32);
 			for (uint32 TileIndex = 0; TileIndex < TileCount; ++TileIndex)
 			{
 				Chunk->Tiles[TileIndex] = 1;
