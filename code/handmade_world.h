@@ -8,9 +8,9 @@ struct world_difference
 
 struct world_position
 {
-	int32 AbsTileX;
-	int32 AbsTileY;
-	int32 AbsTileZ;
+	int32 ChunkX;
+	int32 ChunkY;
+	int32 ChunkZ;
 	
 	vec2 _Offset;
 };
@@ -36,10 +36,10 @@ struct world_chunk
 struct world
 {
 	real32 TileSideInMeters;
+	real32 ChunkSideInMeters;
+
+	world_entity_block *FirstFree;
 	
-    int32 ChunkShift;
-	int32 ChunkMask;
-	int32 ChunkDim;
 	world_chunk ChunkHash[4096];
 };
 
