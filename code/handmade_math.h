@@ -7,7 +7,33 @@ union vec2
 	{
 		real32 X, Y;
 	};
-	real32 E2[2];
+	real32 E[2];
+};
+
+union vec3
+{
+	struct
+	{
+		real32 X, Y, Z;
+	};
+	struct
+	{
+		real32 R, G, B;
+	};
+	real32 E[3];	
+};
+
+union vec4
+{
+	struct
+	{
+		real32 X, Y, Z, W;
+	};
+	struct
+	{
+		real32 R, G, B, A;
+	};
+	real32 E[4];
 };
 
 inline vec2
@@ -16,6 +42,29 @@ Vec2(real32 X, real32 Y)
 	vec2 Result;
 	Result.X = X;
 	Result.Y = Y;
+
+	return Result;
+}
+
+inline vec3
+Vec3(real32 X, real32 Y, real32 Z)
+{
+	vec3 Result;
+	Result.X = X;
+	Result.Y = Y;
+	Result.Z = Z;
+
+	return Result;
+}
+
+inline vec4
+Vec4(real32 X, real32 Y, real32 Z, real32 W)
+{
+	vec4 Result;
+	Result.X = X;
+	Result.Y = Y;
+	Result.Z = Z;
+	Result.W = W;
 
 	return Result;
 }

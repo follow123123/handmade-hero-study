@@ -75,6 +75,13 @@ enum entity_type
 	EntityType_Familiar,
 };
 
+#define HIT_POINT_SUB_COUNT 4
+struct hit_point
+{
+	uint8 Flags;
+	uint32 FilledAmount;
+};
+
 struct low_entity
 {
 	entity_type Type;
@@ -86,6 +93,9 @@ struct low_entity
 	int32 dAbsTileZ;
 
 	uint32 HighEntityIndex;
+
+	uint32 HitPointMax;
+	hit_point HitPoint[16];
 };
 
 struct entity
@@ -95,24 +105,11 @@ struct entity
 	high_entity *High;
 };
 
-struct entity_visible_piece
-{
-	loaded_bitmap *Bitmap;
-	vec2 Offset;
-	real32 OffsetZ;
-	real32 Alpha;
-};
-
-struct entity_visible_piece_group
-{
-	uint32 PieceCount;
-	entity_visible_piece Pieces[8];
-};
-
 struct game_state
 {
 	memory_arena WorldArena;
 	world *World;
+	real32 MetersToPixels;
 	
 	uint32 CameraFollowingEntityIndex;
 	world_position CameraP;
@@ -130,6 +127,27 @@ struct game_state
 	hero_bitmaps HeroBitmaps[4];
 
 	loaded_bitmap Tree;
+};
+
+struct entity_visible_piece
+{
+	loaded_bitmap *Bitmap;
+	vec2 Offset;
+	real32 OffsetZ;
+	real32 EntityZC;
+	real32 R;
+	real32 G;
+	real32 B;
+	real32 A;
+	vec2 Dim;
+};
+
+struct entity_visible_piece_group
+{
+	uint32 PieceCount;
+	entity_visible_piece Pieces[8];
+
+	game_state *GameState;
 };
 
 #define HANDMADE_H
