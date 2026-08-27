@@ -69,10 +69,12 @@ struct high_entity
 enum entity_type
 {
 	EntityType_Null,
+
 	EntityType_Hero,
 	EntityType_Wall,
 	EntityType_Monster,
 	EntityType_Familiar,
+	EntityType_Sword,
 };
 
 #define HIT_POINT_SUB_COUNT 4
@@ -96,6 +98,9 @@ struct low_entity
 
 	uint32 HitPointMax;
 	hit_point HitPoint[16];
+
+	uint32 SwordLowIndex;
+	real32 DistanceRemaining;
 };
 
 struct entity
@@ -127,6 +132,7 @@ struct game_state
 	hero_bitmaps HeroBitmaps[4];
 
 	loaded_bitmap Tree;
+	loaded_bitmap Sword;
 };
 
 struct entity_visible_piece
@@ -135,10 +141,7 @@ struct entity_visible_piece
 	vec2 Offset;
 	real32 OffsetZ;
 	real32 EntityZC;
-	real32 R;
-	real32 G;
-	real32 B;
-	real32 A;
+	real32 R, G, B, A;
 	vec2 Dim;
 };
 
