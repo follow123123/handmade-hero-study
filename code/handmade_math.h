@@ -158,6 +158,14 @@ LengthSq(vec2 A)
 	return Result;
 }
 
+inline real32
+Length(vec2 A)
+{
+	real32 Result = SquareRoot(LengthSq(A));
+
+	return Result;
+}
+
 struct rectangle2
 {
 	vec2 Min, Max;
