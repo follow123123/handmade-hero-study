@@ -52,41 +52,10 @@ struct hero_bitmaps
 	loaded_bitmap Torso; 
 };
 
-enum entity_type
-{
-	EntityType_Null,
-
-	EntityType_Hero,
-	EntityType_Wall,
-	EntityType_Monster,
-	EntityType_Familiar,
-	EntityType_Sword,
-};
-
-#define HIT_POINT_SUB_COUNT 4
-struct hit_point
-{
-	uint8 Flags;
-	uint32 FilledAmount;
-};
-
 struct low_entity
 {
-	entity_type Type;
-
 	world_position P;
-	real32 Width, Height;
-
-	bool32 Collides;
-	int32 dAbsTileZ;
-
-	uint32 HighEntityIndex;
-
-	uint32 HitPointMax;
-	hit_point HitPoint[16];
-
-	uint32 SwordLowIndex;
-	real32 DistanceRemaining;
+	sim_entity Sim;	
 };
 
 struct game_state
@@ -128,6 +97,19 @@ struct entity_visible_piece_group
 
 	game_state *GameState;
 };
+
+inline low_entity *
+GetLowEntity(game_state *GameState, uint32 Index)
+{
+	low_entity *EntityLow = 0;
+
+	if ((Index > 0) && (Index < GameState->LowEntityCount))
+	{
+		EntityLow = GameState->LowEntities + Index;
+	}
+
+	return EntityLow;
+}
 
 #define HANDMADE_H
 #endif
