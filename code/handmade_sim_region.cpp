@@ -26,7 +26,7 @@ MapStorageIndexToEntity(sim_region *SimRegion, uint32 StorageIndex, sim_entity *
 	sim_entity_hash *Entry = GetHashFromStorageIndex(SimRegion, StorageIndex);
 	Assert((Entry->Index == 0) || (Entry->Index == StorageIndex));
 
-	Entry->Index= StorageIndex;
+	Entry->Index = StorageIndex;
 	Entry->Ptr = Entity;
 }
 
@@ -121,17 +121,18 @@ AddEntity(game_state *GameState, sim_region *SimRegion, uint32 StorageIndex, low
 }
 
 internal sim_region *
-BeginSim(memory_arena *Arena, game_state *GameState, world *World, world_position Origin, rectangle2 Bounds)
+BeginSim(memory_arena *SimArena, game_state *GameState, world *World, world_position Origin, rectangle2 Bounds)
 {
-	sim_region *SimRegion = PushStruct(Arena, sim_region);
-
+	sim_region *SimRegion = PushStruct(SimArena, sim_region);
+	ZeroStruct(SimRegion->Hash);
+	
 	SimRegion->World = World;
 	SimRegion->Origin = Origin;
 	SimRegion->Bounds = Bounds;
 
 	SimRegion->MaxEntityCount = 4096;
 	SimRegion->EntityCount = 0;
-	SimRegion->Entities = PushArray(Arena, SimRegion->MaxEntityCount, sim_entity);
+	SimRegion->Entities = PushArray(SimArena, SimRegion->MaxEntityCount, sim_entity);
 
 	world_position MinChunkP = MapIntoChunkSpace(World, SimRegion->Origin, GetMinCorner(SimRegion->Bounds));
 	world_position MaxChunkP = MapIntoChunkSpace(World, SimRegion->Origin, GetMaxCorner(SimRegion->Bounds));
@@ -160,6 +161,8 @@ BeginSim(memory_arena *Arena, game_state *GameState, world *World, world_positio
 			}
 		}
 	}
+
+	return SimRegion;
 }
 
 internal void
