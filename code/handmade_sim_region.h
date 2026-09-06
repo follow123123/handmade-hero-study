@@ -14,8 +14,8 @@ enum entity_type
 
 	EntityType_Hero,
 	EntityType_Wall,
-	EntityType_Monster,
 	EntityType_Familiar,
+	EntityType_Monster,
 	EntityType_Sword,
 };
 
@@ -35,8 +35,8 @@ union entity_reference
 
 enum sim_entity_flags
 {
-	EntityFlag_Collides = (1 << 1),
-	EntityFlag_Nonspatial = (1 << 2),
+	EntityFlag_Collides = (1 << 0),
+	EntityFlag_Nonspatial = (1 << 1),
 	
 	EntityFlag_Simming = (1 << 30),
 };
@@ -52,6 +52,8 @@ struct sim_entity
 	vec2 P;
 	vec2 dP;
 
+	real32 DistanceLimit;
+	
 	uint32 ChunkZ;
 
 	real32 Z;
@@ -69,7 +71,6 @@ struct sim_entity
 	hit_point HitPoint[16];
 
 	entity_reference Sword;
-	real32 DistanceRemaining;
 };
 
 struct sim_entity_hash

@@ -786,7 +786,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 							sim_entity *Sword = Entity->Sword.Ptr;
 							if (Sword && IsSet(Sword, EntityFlag_Nonspatial))
 							{
-								Sword->DistanceRemaining = 5.0f;
+								Sword->DistanceLimit = 5.0f;
 								MakeEntitySpatial(Sword, Entity->P, 5.0f*ConHero->dSword);
 							}
 						}
@@ -853,37 +853,34 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     			real32 BobSin = Sin(2.0f*Entity->tBob);
     			PushBitmap(&PieceGroup, &GameState->Shadow, Vec2(0, 0), 0, HeroBitmaps->Align, (0.5f*ShadowAlpha) - 0.2f*BobSin, 0.0f);
     			PushBitmap(&PieceGroup, &HeroBitmaps->Head, Vec2(0, 0), 0.25f*BobSin, HeroBitmaps->Align);
-    		} break;
-			
-		    case EntityType_Wall:
-		    {
-		    	PushBitmap(&PieceGroup, &GameState->Tree, Vec2(0, 0), 0, Vec2(40, 80));
-		    } break;
-    
-    		case EntityType_Sword:
-    		{
-    			MoveSpec.UnitMaxAccelVector = false;
-    			MoveSpec.Speed = 0.0f;
-    			MoveSpec.Drag = 0.0f;
-    
-    			vec2 OldP = Entity->P;
-    			real32 DistanceTravelled = Length(Entity->P - OldP);
-    
-    				Entity->DistanceRemaining -= DistanceTravelled;
-    				if (Entity->DistanceRemaining < 0.0f)
-    				{
-    					MakeEntityNonSpatial(Entity);
-    				}
-    				
-    		    	PushBitmap(&PieceGroup, &GameState->Shadow, Vec2(0, 0), 0, HeroBitmaps->Align, ShadowAlpha, 0.0f);
-    				PushBitmap(&PieceGroup, &GameState->Sword, Vec2(0, 0), 0, Vec2(29, 10));
-        		} break;
+     		} break;
+	 		
+	 	     case EntityType_Wall:
+	 	     {
+				 PushBitmap(&PieceGroup, &GameState->Tree, Vec2(0, 0), 0, Vec2(40, 80));
+	 	     } break;
+     
+     		 case EntityType_Sword:
+     		 {
+				 MoveSpec.UnitMaxAccelVector = false;
+				 MoveSpec.Speed = 0.0f;
+				 MoveSpec.Drag = 0.0f;
+     
+				 vec2 OldP = Entity->P;
+				 if (Entity->DistanceLimit == 0.0f)
+				 {
+					 MakeEntityNonSpatial(Entity);
+				 }
+    		 		
+				 PushBitmap(&PieceGroup, &GameState->Shadow, Vec2(0, 0), 0, HeroBitmaps->Align, ShadowAlpha, 0.0f);
+				 PushBitmap(&PieceGroup, &GameState->Sword, Vec2(0, 0), 0, Vec2(29, 10));
+			 } break;
     			
 		     default:
 			 {
 				 InvalidCodePath;
 			 } break;
-		}
+		}    
 
 		if (!IsSet(Entity, EntityFlag_Nonspatial))
 		{
