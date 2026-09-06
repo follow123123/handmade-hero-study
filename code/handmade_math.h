@@ -223,6 +223,16 @@ RectHalfCenterDim(vec2 Center, vec2 HalfDim)
 }
 
 inline rectangle2
+AddRadiusTo(rectangle2 A, real32 RadiusW, real32 RadiusH)
+{
+	rectangle2 Result = A;
+	Result.Min = A.Min - Vec2(RadiusW, RadiusH);
+	Result.Max = A.Max + Vec2(RadiusW, RadiusH);
+
+	return Result;
+}
+
+inline rectangle2
 RectCenterDim(vec2 Center, vec2 Dim)
 {
 	rectangle2 Result = RectHalfCenterDim(Center, 0.5*Dim);
