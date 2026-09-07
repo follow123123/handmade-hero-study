@@ -79,6 +79,15 @@ struct controlled_hero
 	real32 dZ;
 };
 
+struct pairwise_collision_rule
+{
+	bool32 ShouldCollide;
+	uint32 StorageIndexA;
+	uint32 StorageIndexB;
+
+	pairwise_collision_rule *NextInHash;
+};
+
 struct game_state
 {
 	memory_arena WorldArena;
@@ -99,6 +108,9 @@ struct game_state
 
 	loaded_bitmap Tree;
 	loaded_bitmap Sword;
+
+	pairwise_collision_rule *CollisionRuleHash[256];
+	pairwise_collision_rule *FirstFreeCollisionRule;
 };
 
 struct entity_visible_piece
@@ -114,7 +126,7 @@ struct entity_visible_piece
 struct entity_visible_piece_group
 {
 	uint32 PieceCount;
-	entity_visible_piece Pieces[8];
+	entity_visible_piece Pieces[32];
 
 	game_state *GameState;
 };
@@ -131,6 +143,9 @@ GetLowEntity(game_state *GameState, uint32 Index)
 
 	return EntityLow;
 }
+
+internal void AddCollisionRule(game_state *GameState, uint32 StorageIndexA, uint32 StorageIndexB, bool32 ShouldCollide);
+internal void ClearCollisionRulesFor(game_state *GameState, uint32 StorageIndex);
 
 #define HANDMADE_H
 #endif

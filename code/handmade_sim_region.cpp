@@ -254,20 +254,76 @@ TestWall(real32 WallX, real32 RelX, real32 RelY, real32 PlayerDeltaX, real32 Pla
 	return Hit;
 }
 
-internal void
+internal bool32
+ShouldCollide(game_state *GameState, sim_entity *A, sim_entity *B)
+{
+	bool32 Result = false;
+
+	if (A->StorageIndex > B->StorageIndex)
+	{
+		sim_entity *Temp = A;
+		A = B;
+		B = Temp;
+	}
+
+	if ((!IsSet(A, EntityFlag_Nonspatial)) &&
+		(!IsSet(A, EntityFlag_Nonspatial)))
+	{
+		Result = true;
+	}
+
+	uint32 HashBucket = A->StorageIndex & (ArrayCount(GameState->CollisionRuleHash) - 1);
+	for (pairwise_collision_rule *Rule = GameState->CollisionRuleHash[HashBucket];
+		 Rule;
+		 Rule = Rule->NextInHash)
+	{
+		if ((Rule->StorageIndexA == A->StorageIndex) &&
+			(Rule->StorageIndexB == B->StorageIndex))
+		{
+			Result = Rule->ShouldCollide;
+			break;
+		}
+	}
+
+	return Result;
+}	   
+
+internal bool32
 HandleCollision(sim_entity *A, sim_entity *B)
 {
+	bool32 StopsOnCollision = false;
+
+	if (A->Type == EntityType_Sword)
+	{
+		StopsOnCollision = false;
+	}
+	else
+	{
+		StopsOnCollision = true;
+	}
+	
+	if (A->Type > B->Type)
+	{
+		sim_entity *Temp = A;
+		A = B;
+		B = Temp;
+	}
+
 	if ((A->Type == EntityType_Monster) &&
 		(B->Type == EntityType_Sword))
 	{
-		--A->HitPointMax;
-		MakeEntityNonSpatial(B);
+		if (A->HitPointMax > 0)
+		{
+			--A->HitPointMax;
+		}
 	}
+
+	return StopsOnCollision;
 }
 
 
 internal void
-MoveEntity(sim_region *SimRegion, sim_entity *Entity, real32 dt, move_spec *MoveSpec, vec2 ddP)
+MoveEntity(game_state *GameState, sim_region *SimRegion, sim_entity *Entity, real32 dt, move_spec *MoveSpec, vec2 ddP)
 {
 	Assert(!IsSet(Entity, EntityFlag_Nonspatial));
 	
@@ -322,10 +378,7 @@ MoveEntity(sim_region *SimRegion, sim_entity *Entity, real32 dt, move_spec *Move
 
 			vec2 DesiredPosition = Entity->P + PlayerDelta;
 
-			bool32 StopsOnCollision = IsSet(Entity, EntityFlag_Collides);
-
-			if (IsSet(Entity, EntityFlag_Collides) &&
-				!IsSet(Entity, EntityFlag_Nonspatial))
+			if (!IsSet(Entity, EntityFlag_Nonspatial))
 			{
 				for (uint32 TestHighEntityIndex = 0; TestHighEntityIndex < SimRegion->EntityCount; ++TestHighEntityIndex)
 				{
@@ -334,8 +387,7 @@ MoveEntity(sim_region *SimRegion, sim_entity *Entity, real32 dt, move_spec *Move
 					{
 						continue;
 					}
-					else if (IsSet(TestEntity, EntityFlag_Collides) &&
-							 !IsSet(TestEntity, EntityFlag_Nonspatial))
+					else if (ShouldCollide(GameState, Entity, TestEntity))
 					{			
 						real32 DiameterW = TestEntity->Width + Entity->Width;
 						real32 DiameterH = TestEntity->Height + Entity->Height;
@@ -378,22 +430,17 @@ MoveEntity(sim_region *SimRegion, sim_entity *Entity, real32 dt, move_spec *Move
 			if (HitEntity)
 			{				
 				PlayerDelta = DesiredPosition - Entity->P;
+
+				bool32 StopsOnCollision = HandleCollision(Entity, HitEntity);
 				if (StopsOnCollision)
 				{
 					Entity->dP = Entity->dP - 1*Inner(Entity->dP, WallNormal)*WallNormal;
 					PlayerDelta = PlayerDelta - 1*Inner(PlayerDelta, WallNormal)*WallNormal;
 				}
-
-				sim_entity *A = Entity;
-				sim_entity *B = HitEntity;
-				if (A->Type > B->Type)
+				else
 				{
-					sim_entity *Temp = A;
-					A = B;
-					B = Temp;
+					AddCollisionRule(GameState, Entity->StorageIndex, HitEntity->StorageIndex, false);
 				}
-
-				HandleCollision(A, B);
 			}
 			else
 			{
