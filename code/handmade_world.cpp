@@ -22,7 +22,7 @@ NullPosition()
 inline bool32
 IsCanonical(real32 ChunkDim, real32 TileRel)
 {
-	real32 Epsilon = 0.0001f;
+	real32 Epsilon = 0.01f;
 	bool32 Result = ((TileRel >= -(0.5f*ChunkDim + Epsilon)) &&
 					 (TileRel <= (0.5f*ChunkDim + Epsilon)));
 
@@ -146,8 +146,7 @@ ChunkPositionFromTilePosition(world *World, int32 AbsTileX, int32 AbsTileY, int3
 {
 	world_position BasePos = {};
 	
-	vec3 Offset = Hadamard(World->ChunkDimInMeters,
-						   Vec3((real32)AbsTileX, (real32)AbsTileY, (real32)AbsTileZ));
+	vec3 Offset = World->TileSideInMeters * Vec3((real32)AbsTileX, (real32)AbsTileY, (real32)AbsTileZ);
 
 	world_position Result = MapIntoChunkSpace(World, BasePos, Offset);
 	
