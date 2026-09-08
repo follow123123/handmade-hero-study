@@ -29,21 +29,20 @@ GetEntityByStorageIndex(sim_region *SimRegion, uint32 StorageIndex)
 	return Result;
 }
 
-inline vec2
+inline vec3
 GetSimSpaceP(sim_region *Region, low_entity *Stored)
 {
-	vec2 Result = InvalidP;
+	vec3 Result = InvalidP;
 	if (!IsSet(&Stored->Sim, EntityFlag_Nonspatial))
 	{
-		world_difference Diff = Subtract(Region->World, &Stored->P, &Region->Origin);
-		Result = Diff.dXY;
+		Result = Subtract(Region->World, &Stored->P, &Region->Origin);
 	}
 	
 	return Result;
 }
 
 internal sim_entity *
-AddEntity(game_state *GameState, sim_region *SimRegion, uint32 StorageIndex, low_entity *Source, vec2 *SimP);
+AddEntity(game_state *GameState, sim_region *SimRegion, uint32 StorageIndex, low_entity *Source, vec3 *SimP);
 inline void
 LoadEntityReference(game_state *GameState, sim_region *SimRegion, entity_reference *Ref)
 {
@@ -54,7 +53,7 @@ LoadEntityReference(game_state *GameState, sim_region *SimRegion, entity_referen
 		{
 			Entry->Index = Ref->Index;
 			low_entity *LowEntity = GetLowEntity(GameState, Ref->Index);
-			vec2 P = GetSimSpaceP(SimRegion, LowEntity);
+			vec3 P = GetSimSpaceP(SimRegion, LowEntity);
 			Entry->Ptr = AddEntity(GameState, SimRegion, Ref->Index, LowEntity, &P);
 		}
 
@@ -108,7 +107,7 @@ AddEntityRaw(game_state *GameState, sim_region *SimRegion, uint32 StorageIndex, 
 }
 
 internal sim_entity * //NOTE: only set updatable when give SimP
-AddEntity(game_state *GameState, sim_region *SimRegion, uint32 StorageIndex, low_entity *Source, vec2 *SimP)
+AddEntity(game_state *GameState, sim_region *SimRegion, uint32 StorageIndex, low_entity *Source, vec3 *SimP)
 {
 	sim_entity *Dest = AddEntityRaw(GameState, SimRegion, StorageIndex, Source);
 	if (Dest)
@@ -128,17 +127,19 @@ AddEntity(game_state *GameState, sim_region *SimRegion, uint32 StorageIndex, low
 }
 
 internal sim_region *
-BeginSim(memory_arena *SimArena, game_state *GameState, world *World, world_position Origin, rectangle2 Bounds)
+BeginSim(memory_arena *SimArena, game_state *GameState, world *World, world_position Origin, rectangle3 Bounds)
 {
 	sim_region *SimRegion = PushStruct(SimArena, sim_region);
 	ZeroStruct(SimRegion->Hash);
 	
 	real32 UpdateSafetyMargin = 1.0f;
+	real32 UpdateSafetyMarginZ = 1.0f;
 
 	SimRegion->World = World;
 	SimRegion->Origin = Origin;
 	SimRegion->UpdatableBounds = Bounds;
-	SimRegion->Bounds = AddRadiusTo(SimRegion->UpdatableBounds, UpdateSafetyMargin, UpdateSafetyMargin);
+	SimRegion->Bounds = AddRadiusTo(SimRegion->UpdatableBounds,
+									Vec3(UpdateSafetyMargin, UpdateSafetyMargin, UpdateSafetyMarginZ));
 
 	SimRegion->MaxEntityCount = 4096;
 	SimRegion->EntityCount = 0;
@@ -163,7 +164,7 @@ BeginSim(memory_arena *SimArena, game_state *GameState, world *World, world_posi
 						low_entity *Low = GameState->LowEntities + LowEntityIndex;
 						if (!IsSet(&Low->Sim, EntityFlag_Nonspatial))
 						{
-							vec2 SimSpaceP = GetSimSpaceP(SimRegion, Low);
+							vec3 SimSpaceP = GetSimSpaceP(SimRegion, Low);
 							if (IsInRectangle(SimRegion->Bounds, SimSpaceP))
 							{
 								AddEntity(GameState, SimRegion, LowEntityIndex, Low, &SimSpaceP);
@@ -259,29 +260,32 @@ ShouldCollide(game_state *GameState, sim_entity *A, sim_entity *B)
 {
 	bool32 Result = false;
 
-	if (A->StorageIndex > B->StorageIndex)
+	if (A != B)
 	{
-		sim_entity *Temp = A;
-		A = B;
-		B = Temp;
-	}
-
-	if ((!IsSet(A, EntityFlag_Nonspatial)) &&
-		(!IsSet(A, EntityFlag_Nonspatial)))
-	{
-		Result = true;
-	}
-
-	uint32 HashBucket = A->StorageIndex & (ArrayCount(GameState->CollisionRuleHash) - 1);
-	for (pairwise_collision_rule *Rule = GameState->CollisionRuleHash[HashBucket];
-		 Rule;
-		 Rule = Rule->NextInHash)
-	{
-		if ((Rule->StorageIndexA == A->StorageIndex) &&
-			(Rule->StorageIndexB == B->StorageIndex))
+		if (A->StorageIndex > B->StorageIndex)
 		{
-			Result = Rule->ShouldCollide;
-			break;
+			sim_entity *Temp = A;
+			A = B;
+			B = Temp;
+		}
+
+		if ((!IsSet(A, EntityFlag_Nonspatial)) &&
+			(!IsSet(A, EntityFlag_Nonspatial)))
+		{
+			Result = true;
+		}
+
+		uint32 HashBucket = A->StorageIndex & (ArrayCount(GameState->CollisionRuleHash) - 1);
+		for (pairwise_collision_rule *Rule = GameState->CollisionRuleHash[HashBucket];
+			 Rule;
+			 Rule = Rule->NextInHash)
+		{
+			if ((Rule->StorageIndexA == A->StorageIndex) &&
+				(Rule->StorageIndexB == B->StorageIndex))
+			{
+				Result = Rule->ShouldCollide;
+				break;
+			}
 		}
 	}
 
@@ -321,9 +325,8 @@ HandleCollision(sim_entity *A, sim_entity *B)
 	return StopsOnCollision;
 }
 
-
 internal void
-MoveEntity(game_state *GameState, sim_region *SimRegion, sim_entity *Entity, real32 dt, move_spec *MoveSpec, vec2 ddP)
+MoveEntity(game_state *GameState, sim_region *SimRegion, sim_entity *Entity, real32 dt, move_spec *MoveSpec, vec3 ddP)
 {
 	Assert(!IsSet(Entity, EntityFlag_Nonspatial));
 	
@@ -341,20 +344,13 @@ MoveEntity(game_state *GameState, sim_region *SimRegion, sim_entity *Entity, rea
 	ddP *= MoveSpec->Speed;
 
 	ddP += -MoveSpec->Drag*Entity->dP;
+	ddP += Vec3(0, 0, -9.8f);
 	
-	vec2 OldPlayerP = Entity->P;
-	vec2 PlayerDelta = (0.5f*ddP*Square(dt) + Entity->dP*dt);
+	vec3 OldPlayerP = Entity->P;
+	vec3 PlayerDelta = (0.5f*ddP*Square(dt) + Entity->dP*dt);
 	Entity->dP = Entity->dP + ddP*dt;			
-	vec2 NewPlayerP = OldPlayerP + PlayerDelta;				
-	
-	real32 ddZ = -9.8f;
-	Entity->Z = 0.5f*ddZ*Square(dt) + Entity->dZ*dt + Entity->Z;
-	Entity->dZ = ddZ*dt + Entity->dZ;
-	if (Entity->Z < 0)
-	{
-		Entity->Z =0;
-	}
-	
+	vec3 NewPlayerP = OldPlayerP + PlayerDelta;				
+		
 	real32 DistanceRemaining = Entity->DistanceLimit;
 	if (DistanceRemaining == 0.0f)
 	{
@@ -373,52 +369,49 @@ MoveEntity(game_state *GameState, sim_region *SimRegion, sim_entity *Entity, rea
 				tMin = DistanceRemaining / PlayerDeltaLength;
 			}
 			
-			vec2 WallNormal = {};
+			vec3 WallNormal = {};
 			sim_entity *HitEntity = 0;
 
-			vec2 DesiredPosition = Entity->P + PlayerDelta;
+			vec3 DesiredPosition = Entity->P + PlayerDelta;
 
 			if (!IsSet(Entity, EntityFlag_Nonspatial))
 			{
 				for (uint32 TestHighEntityIndex = 0; TestHighEntityIndex < SimRegion->EntityCount; ++TestHighEntityIndex)
 				{
 					sim_entity *TestEntity = SimRegion->Entities + TestHighEntityIndex;
-					if (Entity == TestEntity)
-					{
-						continue;
-					}
-					else if (ShouldCollide(GameState, Entity, TestEntity))
+					if (ShouldCollide(GameState, Entity, TestEntity))
 					{			
-						real32 DiameterW = TestEntity->Width + Entity->Width;
-						real32 DiameterH = TestEntity->Height + Entity->Height;
+						vec3 MinkowskiDiameter = {TestEntity->Width + Entity->Width,
+							                      TestEntity->Height + Entity->Height,
+							                      2.0f*World->TileDepthInMeters};
 				
-						vec2 MinCorner = -0.5f*vec2{DiameterW, DiameterH};
-						vec2 MaxCorner = 0.5f*vec2{DiameterW, DiameterH};
+						vec3 MinCorner = -0.5f*MinkowskiDiameter;
+						vec3 MaxCorner = 0.5f*MinkowskiDiameter;
 
-						vec2 Rel = Entity->P - TestEntity->P;
+						vec3 Rel = Entity->P - TestEntity->P;
 
 						if (TestWall(MinCorner.X, Rel.X, Rel.Y, PlayerDelta.X, PlayerDelta.Y,
 									 &tMin, MinCorner.Y, MaxCorner.Y))
 						{
-							WallNormal = vec2{-1, 0};
+							WallNormal = vec3{-1, 0, 0};
 							HitEntity = TestEntity;						
 						}
 						if (TestWall(MaxCorner.X, Rel.X, Rel.Y, PlayerDelta.X, PlayerDelta.Y,
 									 &tMin, MinCorner.Y, MaxCorner.Y))
 						{
-							WallNormal = vec2{1, 0};
+							WallNormal = vec3{1, 0, 0};
 							HitEntity = TestEntity;						
 						}
 						if (TestWall(MinCorner.Y, Rel.Y, Rel.X, PlayerDelta.Y, PlayerDelta.X,
 									 &tMin, MinCorner.X, MaxCorner.X))
 						{
-							WallNormal = vec2{0, -1};
+							WallNormal = vec3{0, -1, 0};
 							HitEntity = TestEntity;						
 						}
 						if (TestWall(MaxCorner.Y, Rel.Y, Rel.X, PlayerDelta.Y, PlayerDelta.X,
 									 &tMin, MinCorner.X, MaxCorner.X))
 						{
-							WallNormal = vec2{0, 1};
+							WallNormal = vec3{0, 1, 0};
 							HitEntity = TestEntity;						
 						}
 					}
@@ -452,6 +445,11 @@ MoveEntity(game_state *GameState, sim_region *SimRegion, sim_entity *Entity, rea
 			break;
 		}
 	}
+
+    if(Entity->P.Z < 0)
+    {
+        Entity->P.Z = 0;
+    }
 
 	if (Entity->DistanceLimit != 0.0f)
 	{

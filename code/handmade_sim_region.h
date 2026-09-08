@@ -23,7 +23,7 @@ enum entity_type
 struct hit_point
 {
 	uint8 Flags;
-	uint32 FilledAmount;
+	uint8 FilledAmount;
 };
 
 struct sim_entity;
@@ -49,22 +49,16 @@ struct sim_entity
 	entity_type Type;
 	uint32 Flags;
 	
-	vec2 P;
-	vec2 dP;
+	vec3 P;
+	vec3 dP;
 
 	real32 DistanceLimit;
-	
-	uint32 ChunkZ;
-
-	real32 Z;
-	real32 dZ;
 	
 	real32 Width, Height;
 
 	uint32 FacingDirection;
 	real32 tBob;
 	
-	bool32 Collides;
 	int32 dAbsTileZ;
 
 	uint32 HitPointMax;
@@ -84,8 +78,8 @@ struct sim_region
 	world *World;
 
 	world_position Origin;
-	rectangle2 UpdatableBounds;
-	rectangle2 Bounds;
+	rectangle3 UpdatableBounds;
+	rectangle3 Bounds;
 	
 	uint32 MaxEntityCount;
 	uint32 EntityCount;

@@ -20,19 +20,21 @@ NullPosition()
 }
 
 inline bool32
-IsCanonical(world *World, real32 ChunkRel)
+IsCanonical(real32 ChunkDim, real32 TileRel)
 {
 	real32 Epsilon = 0.0001f;
-	bool32 Result = ((ChunkRel >= -(0.5f*World->ChunkSideInMeters + Epsilon)) &&
-					 (ChunkRel <= (0.5f*World->ChunkSideInMeters + Epsilon)));
+	bool32 Result = ((TileRel >= -(0.5f*ChunkDim + Epsilon)) &&
+					 (TileRel <= (0.5f*ChunkDim + Epsilon)));
 
 	return Result;
 }
 
 inline bool32
-IsCanonical(world *World, vec2 Offset)
+IsCanonical(world *World, vec3 Offset)
 {
-	bool32 Result = (IsCanonical(World, Offset.X) && IsCanonical(World, Offset.Y));
+	bool32 Result = (IsCanonical(World->ChunkDimInMeters.X, Offset.X) &&
+					 IsCanonical(World->ChunkDimInMeters.Y, Offset.Y) &&
+					 IsCanonical(World->ChunkDimInMeters.Z, Offset.Z));
 
 	return Result;
 }
@@ -103,7 +105,10 @@ internal void
 InitializeWorld(world *World, real32 TileSideInMeters)
 {
 	World->TileSideInMeters = TileSideInMeters;
-	World->ChunkSideInMeters = (real32)TILES_PER_CHUNK*TileSideInMeters;
+	World->ChunkDimInMeters = {(real32)TILES_PER_CHUNK*TileSideInMeters,
+		                        (real32)TILES_PER_CHUNK*TileSideInMeters,
+		                        (real32)TileSideInMeters};
+	World->TileDepthInMeters = (real32)TileSideInMeters;
 	World->FirstFree = 0;
 	
 	for (uint32 ChunkIndex = 0; ChunkIndex < ArrayCount(World->ChunkHash); ++ChunkIndex)
@@ -114,23 +119,24 @@ InitializeWorld(world *World, real32 TileSideInMeters)
 }
 
 inline void
-RecanonicalizeCoord(world *World, int32 *Chunk, real32 *ChunkRel)
+RecanonicalizeCoord(real32 ChunkDim, int32 *Tile, real32 *TileRel)
 {
-	int32 Offset = RoundReal32ToInt32(*ChunkRel / World->ChunkSideInMeters);
-	*Chunk += Offset;
-	*ChunkRel -= Offset*World->ChunkSideInMeters;
+	int32 Offset = RoundReal32ToInt32(*TileRel / ChunkDim);
+	*Tile += Offset;
+	*TileRel -= Offset*ChunkDim;
 
-	Assert(IsCanonical(World, *ChunkRel));
+	Assert(IsCanonical(ChunkDim, *TileRel));
 }
 
 inline world_position
-MapIntoChunkSpace(world *World, world_position BasePos, vec2 Offset)
+MapIntoChunkSpace(world *World, world_position BasePos, vec3 Offset)
 {
 	world_position Result = BasePos;
 	
 	Result._Offset += Offset;
-	RecanonicalizeCoord(World, &Result.ChunkX, &Result._Offset.X);
-	RecanonicalizeCoord(World, &Result.ChunkY, &Result._Offset.Y);
+	RecanonicalizeCoord(World->ChunkDimInMeters.X, &Result.ChunkX, &Result._Offset.X);
+	RecanonicalizeCoord(World->ChunkDimInMeters.Y, &Result.ChunkY, &Result._Offset.Y);
+	RecanonicalizeCoord(World->ChunkDimInMeters.Z, &Result.ChunkZ, &Result._Offset.Z);
 
 	return Result;	
 }
@@ -138,44 +144,26 @@ MapIntoChunkSpace(world *World, world_position BasePos, vec2 Offset)
 inline world_position
 ChunkPositionFromTilePosition(world *World, int32 AbsTileX, int32 AbsTileY, int32 AbsTileZ)
 {
-	world_position Result = {};
+	world_position BasePos = {};
 	
-	Result.ChunkX = AbsTileX / TILES_PER_CHUNK;
-	Result.ChunkY = AbsTileY / TILES_PER_CHUNK;
-	Result.ChunkZ = AbsTileZ / TILES_PER_CHUNK;
+	vec3 Offset = Hadamard(World->ChunkDimInMeters,
+						   Vec3((real32)AbsTileX, (real32)AbsTileY, (real32)AbsTileZ));
 
-	if (AbsTileX < 0)
-	{
-		--Result.ChunkX;
-	}
-	if (AbsTileY < 0)
-	{
-		--Result.ChunkY;
-	}
-	if (AbsTileZ < 0)
-	{
-		--Result.ChunkZ;
-	}
+	world_position Result = MapIntoChunkSpace(World, BasePos, Offset);
 	
-	Result._Offset.X = (real32)((AbsTileX - TILES_PER_CHUNK/2) - (Result.ChunkX*TILES_PER_CHUNK)) * World->TileSideInMeters;
-	Result._Offset.Y = (real32)((AbsTileY - TILES_PER_CHUNK/2) - (Result.ChunkY*TILES_PER_CHUNK)) * World->TileSideInMeters;
-
 	Assert(IsCanonical(World, Result._Offset));
 	
 	return Result;
 }
 
-inline world_difference
+inline vec3
 Subtract(world *World, world_position *A, world_position *B)
 {
-	world_difference Result = {};
-
-	vec2 dChunkXY = {(real32)A->ChunkX - (real32)B->ChunkX,
-	             	(real32)A->ChunkY - (real32)B->ChunkY};
-    real32 dChunkZ = (real32)A->ChunkZ - (real32)B->ChunkZ;
+	vec3 dTile = {(real32)A->ChunkX - (real32)B->ChunkX,
+		          (real32)A->ChunkY - (real32)B->ChunkY,
+		          (real32)A->ChunkZ - (real32)B->ChunkZ};
 	
-	Result.dXY = World->ChunkSideInMeters*dChunkXY + (A->_Offset - B->_Offset);
-	Result.dZ = World->ChunkSideInMeters*dChunkZ;
+	vec3 Result = Hadamard(dTile, World->ChunkDimInMeters) + (A->_Offset - B->_Offset);
 
 	return Result;
 }
