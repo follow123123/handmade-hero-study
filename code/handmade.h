@@ -79,6 +79,12 @@ struct controlled_hero
 	real32 dZ;
 };
 
+enum pairwiase_collision_rule_flag
+{
+	PairCollisionFlag_ShouldCollide = 0x1,
+	PairCollisionFlag_Temporary = 0x2,
+};
+
 struct pairwise_collision_rule
 {
 	bool32 ShouldCollide;
@@ -108,6 +114,7 @@ struct game_state
 
 	loaded_bitmap Tree;
 	loaded_bitmap Sword;
+	loaded_bitmap Stairwell;
 
 	pairwise_collision_rule *CollisionRuleHash[256];
 	pairwise_collision_rule *FirstFreeCollisionRule;
