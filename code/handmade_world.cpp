@@ -142,13 +142,14 @@ MapIntoChunkSpace(world *World, world_position BasePos, vec3 Offset)
 }
 
 inline world_position
-ChunkPositionFromTilePosition(world *World, int32 AbsTileX, int32 AbsTileY, int32 AbsTileZ)
+ChunkPositionFromTilePosition(world *World, int32 AbsTileX, int32 AbsTileY, int32 AbsTileZ,
+							  vec3 AdditionalOffset = Vec3(0, 0, 0))
 {
 	world_position BasePos = {};
 	
 	vec3 Offset = World->TileSideInMeters * Vec3((real32)AbsTileX, (real32)AbsTileY, (real32)AbsTileZ);
 
-	world_position Result = MapIntoChunkSpace(World, BasePos, Offset);
+	world_position Result = MapIntoChunkSpace(World, BasePos, AdditionalOffset + Offset);
 	
 	Assert(IsCanonical(World, Result._Offset));
 	

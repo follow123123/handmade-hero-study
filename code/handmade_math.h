@@ -100,6 +100,50 @@ Vec4(real32 X, real32 Y, real32 Z, real32 W)
 	return Result;
 }
 
+// real32
+
+inline real32
+Square(real32 A)
+{
+	real32 Result = A*A;
+
+	return Result;
+}
+
+inline real32
+Lerp(real32 t, real32 A, real32 B)
+{
+	real32 Result = (1.0f - t)*A + t*B;
+
+	return Result;
+}
+
+inline real32
+Clamp(real32 Value, real32 Min, real32 Max)
+{
+	real32 Result = Value;
+	if (Result < Min)
+	{
+		Result = Min;
+	}
+	if (Result > Max)
+	{
+		Result = Max;
+	}
+
+	return Result;
+}
+
+inline real32
+Clamp01(real32 Value)
+{
+	real32 Result = Clamp(Value, 0, 1);
+
+	return Result;
+}
+
+// vec2
+
 inline vec2
 operator+(vec2 A, vec2 B)
 {
@@ -165,18 +209,21 @@ operator*=(vec2 &B, real32 A)
 	return B;
 }
 
-inline vec2
-Hadamard(vec2 A, vec2 B)
+inline vec3
+Clamp01(vec3 Value)
 {
-	vec2 Result = {A.X*B.X, A.Y*B.Y};
+	vec3 Result;
+	Result.X = Clamp01(Value.X);
+	Result.Y = Clamp01(Value.Y);
+	Result.Z = Clamp01(Value.Z);
 
 	return Result;
 }
 
-inline real32
-Square(real32 A)
+inline vec2
+Hadamard(vec2 A, vec2 B)
 {
-	real32 Result = A*A;
+	vec2 Result = {A.X*B.X, A.Y*B.Y};
 
 	return Result;
 }
@@ -487,6 +534,45 @@ RectangleIntersect(rectangle3 A, rectangle3 B)
 					  (B.Min.Y > A.Max.Y) ||
 					  (B.Max.Z < A.Min.Z) ||
 					  (B.Min.Z > A.Max.Z));
+
+	return Result;
+}
+
+inline real32
+SafeRatioN(real32 Numerator, real32 Divisor, real32 N)
+{
+	real32 Result = N;
+	if (Divisor != 0)
+	{
+		Result = Numerator / Divisor;
+	}
+
+	return Result;
+}
+
+inline real32
+SafeRatio0(real32 Numerator, real32 Divisor)
+{
+	real32 Result = SafeRatioN(Numerator, Divisor, 0);
+
+	return Result;
+}
+
+inline real32
+SafeRatio1(real32 Numerator, real32 Divisor)
+{
+	real32 Result = SafeRatioN(Numerator, Divisor, 1);
+
+	return Result;
+}
+
+inline vec3
+GetBarycentric(rectangle3 Rect, vec3 P)
+{
+	vec3 Result;
+	Result.X = SafeRatio0(P.X - Rect.Min.X, Rect.Max.X - Rect.Min.X);
+	Result.Y = SafeRatio0(P.Y - Rect.Min.Y, Rect.Max.Y - Rect.Min.Y);
+	Result.Z = SafeRatio0(P.Z - Rect.Min.Z, Rect.Max.Z - Rect.Min.Z);
 
 	return Result;
 }

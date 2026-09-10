@@ -1075,7 +1075,6 @@ WinMain(
 			Win32ClearBuffer(&SoundOutput);
 			GlobalSecondaryBuffer->Play(0, 0, DSBPLAY_LOOPING);
 
-			win32_state Win32State = {};
 			GlobalRunning = true;
 
 #if 0

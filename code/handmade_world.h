@@ -1,4 +1,4 @@
-#if !defined(HANDMADE_TILE_H)
+#if !defined(HANDMADE_WORLD_H)
 
 struct world_position
 {

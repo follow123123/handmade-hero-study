@@ -338,7 +338,8 @@ AddSword(game_state *GameState)
 
 	Entity.Low->Sim.Dim.Y = 0.5f;
 	Entity.Low->Sim.Dim.X = 1.0f;			
-
+	AddFlag(&Entity.Low->Sim, EntityFlag_Moveable);
+	
 	return Entity;
 }
 
@@ -349,7 +350,7 @@ AddPlayer(game_state *GameState)
 
 	Entity.Low->Sim.Dim.Y = 0.5f;
 	Entity.Low->Sim.Dim.X = 1.0f;			
-	AddFlag(&Entity.Low->Sim, EntityFlag_Collides);
+	AddFlag(&Entity.Low->Sim, EntityFlag_Collides|EntityFlag_Moveable);
 	
 	InitHitPoints(Entity.Low, 3);
 
@@ -380,12 +381,13 @@ AddWall(game_state *GameState, uint32 AbsTileX, uint32 AbsTileY, uint32 AbsTileZ
 internal add_low_entity_result
 AddStair(game_state *GameState, uint32 AbsTileX, uint32 AbsTileY, uint32 AbsTileZ)
 {
-	world_position P = ChunkPositionFromTilePosition(GameState->World, AbsTileX, AbsTileY, AbsTileZ);
+	world_position P = ChunkPositionFromTilePosition(GameState->World, AbsTileX, AbsTileY, AbsTileZ,
+													 Vec3(0.0f, 0.0f, 0.5f*GameState->World->TileDepthInMeters));
 	add_low_entity_result Entity = AddLowEntity(GameState, EntityType_Stairwell, P);	
 
 	Entity.Low->Sim.Dim.Y = GameState->World->TileSideInMeters;
 	Entity.Low->Sim.Dim.X = Entity.Low->Sim.Dim.Y;			
-	Entity.Low->Sim.Dim.Z = GameState->World->TileDepthInMeters;			
+	Entity.Low->Sim.Dim.Z = 1.2f*GameState->World->TileDepthInMeters;			
 
 	return Entity;
 }
@@ -398,7 +400,7 @@ AddMonster(game_state *GameState, uint32 AbsTileX, uint32 AbsTileY, uint32 AbsTi
 
 	Entity.Low->Sim.Dim.Y = GameState->World->TileSideInMeters;
 	Entity.Low->Sim.Dim.X = Entity.Low->Sim.Dim.Y;			
-	AddFlag(&Entity.Low->Sim, EntityFlag_Collides);
+	AddFlag(&Entity.Low->Sim, EntityFlag_Collides|EntityFlag_Moveable);
 
 	InitHitPoints(Entity.Low, 3);
 	
@@ -413,7 +415,7 @@ AddFamiliar(game_state *GameState, uint32 AbsTileX, uint32 AbsTileY, uint32 AbsT
 
 	Entity.Low->Sim.Dim.Y = GameState->World->TileSideInMeters;
 	Entity.Low->Sim.Dim.X = Entity.Low->Sim.Dim.Y;			
-	AddFlag(&Entity.Low->Sim, EntityFlag_Collides);
+	AddFlag(&Entity.Low->Sim, EntityFlag_Collides|EntityFlag_Moveable);
 
 	return Entity;
 }
@@ -446,7 +448,7 @@ ClearCollisionRulesFor(game_state *GameState, uint32 StorageIndex)
 
 
 internal void
-AddCollisionRule(game_state *GameState, uint32 StorageIndexA, uint32 StorageIndexB, bool32 ShouldCollide)
+AddCollisionRule(game_state *GameState, uint32 StorageIndexA, uint32 StorageIndexB, bool32 CanCollide)
 {
 	if (StorageIndexA > StorageIndexB)
 	{
@@ -489,7 +491,7 @@ AddCollisionRule(game_state *GameState, uint32 StorageIndexA, uint32 StorageInde
 	{
 		Found->StorageIndexA = StorageIndexA;
 		Found->StorageIndexB = StorageIndexB;
-		Found->ShouldCollide = ShouldCollide;
+		Found->CanCollide = CanCollide;
 	}
 }
 
@@ -802,7 +804,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
 	memory_arena SimArena;
 	InitializeArena(&SimArena, Memory->TransientStorageSize, Memory->TransientStorage);
-	sim_region *SimRegion = BeginSim(&SimArena, GameState, GameState->World, GameState->CameraP, CameraBounds);
+	sim_region *SimRegion = BeginSim(&SimArena, GameState, GameState->World, GameState->CameraP, CameraBounds, Input->dtForFrame);
 	
 #if 0
 	DrawBitmap(Buffer, &GameState->Backdrop, 0, 0); 
@@ -953,7 +955,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
 		    case EntityType_Stairwell:
 			{
-				PushBitmap(&PieceGroup, &GameState->Stairwell, Vec2(0, 0), 0, Vec2(37, 37));
+				PushRect(&PieceGroup, Vec2(0, 0), 0, Entity->Dim.XY, Vec4(1, 1, 0, 1), 0);
+
 			} break;
 
 		    default:
@@ -962,7 +965,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 			} break;
 		}    
 
-		if (!IsSet(Entity, EntityFlag_Nonspatial))
+		if (!IsSet(Entity, EntityFlag_Nonspatial) &&
+			IsSet(Entity, EntityFlag_Moveable))
 		{
 			MoveEntity(GameState, SimRegion, Entity, dt, &MoveSpec, ddP);
 		}

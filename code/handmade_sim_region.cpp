@@ -109,7 +109,7 @@ AddEntityRaw(game_state *GameState, sim_region *SimRegion, uint32 StorageIndex, 
 inline bool32
 EntityOverlapsRectangle(vec3 P, vec3 Dim, rectangle3 Rect)
 {
-	rectangle3 Grown = AddRadiusTo(Rect, Dim);
+	rectangle3 Grown = AddRadiusTo(Rect, 0.5f*Dim);
 	bool32 Result = IsInRectangle(Grown, P);
 
 	return Result;
@@ -124,7 +124,7 @@ AddEntity(game_state *GameState, sim_region *SimRegion, uint32 StorageIndex, low
 		if (SimP)
 		{
 			Dest->P = *SimP;
-			Dest->Updatable = IsInRectangle(SimRegion->UpdatableBounds, Dest->P);
+			Dest->Updatable = EntityOverlapsRectangle(Dest->P, Dest->Dim, SimRegion->UpdatableBounds);
 		}
 		else
 		{
@@ -136,14 +136,14 @@ AddEntity(game_state *GameState, sim_region *SimRegion, uint32 StorageIndex, low
 }
 
 internal sim_region *
-BeginSim(memory_arena *SimArena, game_state *GameState, world *World, world_position Origin, rectangle3 Bounds)
+BeginSim(memory_arena *SimArena, game_state *GameState, world *World, world_position Origin, rectangle3 Bounds, real32 dt)
 {
 	sim_region *SimRegion = PushStruct(SimArena, sim_region);
 	ZeroStruct(SimRegion->Hash);
 	
 	SimRegion->MaxEntityRadius = 5.0f;
 	SimRegion->MaxEntityVelocity = 30.0f;
-	real32 UpdateSafetyMargin = 1.0f;
+	real32 UpdateSafetyMargin = SimRegion->MaxEntityRadius + dt*SimRegion->MaxEntityVelocity;
 	real32 UpdateSafetyMarginZ = 1.0f;
 
 	SimRegion->World = World;
@@ -161,29 +161,32 @@ BeginSim(memory_arena *SimArena, game_state *GameState, world *World, world_posi
 	world_position MinChunkP = MapIntoChunkSpace(World, SimRegion->Origin, GetMinCorner(SimRegion->Bounds));
 	world_position MaxChunkP = MapIntoChunkSpace(World, SimRegion->Origin, GetMaxCorner(SimRegion->Bounds));
 	
-	for (int32 ChunkY = MinChunkP.ChunkY; ChunkY <= MaxChunkP.ChunkY; ++ChunkY)
+	for (int32 ChunkZ = MinChunkP.ChunkZ; ChunkZ <= MaxChunkP.ChunkZ; ++ChunkZ)
 	{
-		for (int32 ChunkX = MinChunkP.ChunkX; ChunkX <= MaxChunkP.ChunkX; ++ChunkX)
+		for (int32 ChunkY = MinChunkP.ChunkY; ChunkY <= MaxChunkP.ChunkY; ++ChunkY)
 		{
-			world_chunk *Chunk = GetWorldChunk(World, ChunkX, ChunkY, SimRegion->Origin.ChunkZ);
-			if (Chunk)
+			for (int32 ChunkX = MinChunkP.ChunkX; ChunkX <= MaxChunkP.ChunkX; ++ChunkX)
 			{
-				world_entity_block *FirstBlock = &Chunk->FirstBlock;
-				for (world_entity_block *Block = FirstBlock; Block; Block = Block->Next)
+				world_chunk *Chunk = GetWorldChunk(World, ChunkX, ChunkY, ChunkZ);
+				if (Chunk)
 				{
-					for (uint32 EntityIndexIndex = 0; EntityIndexIndex < Block->EntityCount; ++EntityIndexIndex)
+					world_entity_block *FirstBlock = &Chunk->FirstBlock;
+					for (world_entity_block *Block = FirstBlock; Block; Block = Block->Next)
 					{
-						uint32 LowEntityIndex = Block->LowEntityIndex[EntityIndexIndex];
-						low_entity *Low = GameState->LowEntities + LowEntityIndex;
-						if (!IsSet(&Low->Sim, EntityFlag_Nonspatial))
+						for (uint32 EntityIndexIndex = 0; EntityIndexIndex < Block->EntityCount; ++EntityIndexIndex)
 						{
-							vec3 SimSpaceP = GetSimSpaceP(SimRegion, Low);
-							if (EntityOverlapsRectangle(SimSpaceP, Low->Sim.Dim, SimRegion->Bounds))
+							uint32 LowEntityIndex = Block->LowEntityIndex[EntityIndexIndex];
+							low_entity *Low = GameState->LowEntities + LowEntityIndex;
+							if (!IsSet(&Low->Sim, EntityFlag_Nonspatial))
 							{
-								AddEntity(GameState, SimRegion, LowEntityIndex, Low, &SimSpaceP);
+								vec3 SimSpaceP = GetSimSpaceP(SimRegion, Low);
+								if (EntityOverlapsRectangle(SimSpaceP, Low->Sim.Dim, SimRegion->Bounds))
+								{
+									AddEntity(GameState, SimRegion, LowEntityIndex, Low, &SimSpaceP);
+								}
 							}
-						}
-					}					
+						}					
+					}
 				}
 			}
 		}
@@ -271,7 +274,7 @@ TestWall(real32 WallX, real32 RelX, real32 RelY, real32 PlayerDeltaX, real32 Pla
 }
 
 internal bool32
-ShouldCollide(game_state *GameState, sim_entity *A, sim_entity *B)
+CanCollide(game_state *GameState, sim_entity *A, sim_entity *B)
 {
 	bool32 Result = false;
 
@@ -285,11 +288,17 @@ ShouldCollide(game_state *GameState, sim_entity *A, sim_entity *B)
 		}
 
 		if ((!IsSet(A, EntityFlag_Nonspatial)) &&
-			(!IsSet(A, EntityFlag_Nonspatial)))
+			(!IsSet(B, EntityFlag_Nonspatial)))
 		{
 			Result = true;
 		}
 
+		if (A->Type == EntityType_Stairwell ||
+			B->Type == EntityType_Stairwell)
+		{
+			Result = false;
+		}
+		
 		uint32 HashBucket = A->StorageIndex & (ArrayCount(GameState->CollisionRuleHash) - 1);
 		for (pairwise_collision_rule *Rule = GameState->CollisionRuleHash[HashBucket];
 			 Rule;
@@ -298,7 +307,7 @@ ShouldCollide(game_state *GameState, sim_entity *A, sim_entity *B)
 			if ((Rule->StorageIndexA == A->StorageIndex) &&
 				(Rule->StorageIndexB == B->StorageIndex))
 			{
-				Result = Rule->ShouldCollide;
+				Result = Rule->CanCollide;
 				break;
 			}
 		}
@@ -308,7 +317,7 @@ ShouldCollide(game_state *GameState, sim_entity *A, sim_entity *B)
 }	   
 
 internal bool32
-HandleCollision(game_state *GameState, sim_entity *A, sim_entity *B, bool32 WasOverlapping)
+HandleCollision(game_state *GameState, sim_entity *A, sim_entity *B)
 {
 	bool32 StopsOnCollision = false;
 
@@ -338,13 +347,34 @@ HandleCollision(game_state *GameState, sim_entity *A, sim_entity *B, bool32 WasO
 		}
 	}
 
-	if ((A->Type == EntityType_Monster) &&
-		(B->Type == EntityType_Sword))
+	return StopsOnCollision;
+}
+
+internal bool32
+CanOverlap(game_state *GameState, sim_entity *Mover, sim_entity *Region)
+{
+	bool32 Result = false;
+
+	if (Mover != Region)
 	{
-		StopsOnCollision = false;
+		if (Region->Type == EntityType_Stairwell)
+		{
+			Result = true;
+		}
 	}
 	
-	return StopsOnCollision;
+	return Result;
+}	   
+
+internal void
+HandleOverlap(game_state *GameState, sim_entity *Mover, sim_entity *Region, real32 dt, real32 *Ground)	
+{
+	if (Region->Type == EntityType_Stairwell)
+	{
+		rectangle3 RegionRect = RectCenterDim(Region->P, Region->Dim);
+		vec3 Bary = Clamp01(GetBarycentric(RegionRect, Mover->P));
+		*Ground = Lerp(Bary.Y, RegionRect.Min.Z, RegionRect.Max.Z);
+	}
 }
 
 internal void
@@ -381,31 +411,6 @@ MoveEntity(game_state *GameState, sim_region *SimRegion, sim_entity *Entity, rea
 		DistanceRemaining = 10000.0f;
 	}
 
-	uint32 OverlappingCount = 0;
-	sim_entity *OverlappingEntities[16];
-	{
-		rectangle3 EntityRect = RectCenterDim(Entity->P, Entity->Dim);
-		for (uint32 TestHighEntityIndex = 0; TestHighEntityIndex < SimRegion->EntityCount; ++TestHighEntityIndex)
-		{
-			sim_entity *TestEntity = SimRegion->Entities + TestHighEntityIndex;
-			if (ShouldCollide(GameState, TestEntity, Entity))
-			{
-				rectangle3 TestEntityRect = RectCenterDim(TestEntity->P, TestEntity->Dim);
-				if (RectangleIntersect(EntityRect, TestEntityRect))
-				{
-					if (OverlappingCount < ArrayCount(OverlappingEntities))
-					{
-						OverlappingEntities[OverlappingCount++] = TestEntity;
-					}
-					else
-					{
-						InvalidCodePath;
-					}
-				}
-			}
-		}
-	}
-
 	for (uint32 Iteration = 0; Iteration < 4; ++Iteration)
 	{
 		real32 tMin = 1.0f;
@@ -428,7 +433,8 @@ MoveEntity(game_state *GameState, sim_region *SimRegion, sim_entity *Entity, rea
 				for (uint32 TestHighEntityIndex = 0; TestHighEntityIndex < SimRegion->EntityCount; ++TestHighEntityIndex)
 				{
 					sim_entity *TestEntity = SimRegion->Entities + TestHighEntityIndex;
-					if (ShouldCollide(GameState, Entity, TestEntity))
+					if (CanCollide(GameState, Entity, TestEntity) &&
+						TestEntity->P.Z == Entity->P.Z)
 					{			
 						vec3 MinkowskiDiameter = {TestEntity->Dim.X + Entity->Dim.X,
 							                      TestEntity->Dim.Y + Entity->Dim.Y,
@@ -470,39 +476,15 @@ MoveEntity(game_state *GameState, sim_region *SimRegion, sim_entity *Entity, rea
 			Entity->P += tMin*PlayerDelta;
 			DistanceRemaining -= tMin*PlayerDeltaLength;
 			if (HitEntity)
-			{				
+			{
 				PlayerDelta = DesiredPosition - Entity->P;
-
-				uint32 OverlapIndex = OverlappingCount;
-				for (uint32 TestOverlapIndex = 0; TestOverlapIndex < OverlappingCount; ++TestOverlapIndex)
-				{
-					if (HitEntity == OverlappingEntities[TestOverlapIndex])
-					{
-						OverlapIndex = TestOverlapIndex;
-						break;
-					}
-				}
 				
-				bool32 WasOverlapping = (OverlapIndex != OverlappingCount);
-				bool32 StopsOnCollision = HandleCollision(GameState, Entity, HitEntity, WasOverlapping);
+				bool32 StopsOnCollision = HandleCollision(GameState, Entity, HitEntity);
 				if (StopsOnCollision)
 				{
 					PlayerDelta = PlayerDelta - 1*Inner(PlayerDelta, WallNormal)*WallNormal;
 					Entity->dP = Entity->dP - 1*Inner(Entity->dP, WallNormal)*WallNormal;
 				}
-				else
-					if (WasOverlapping)
-					{
-						OverlappingEntities[OverlapIndex] = OverlappingEntities[--OverlappingCount];
-					}
-					else if (OverlappingCount < ArrayCount(OverlappingEntities))						
-					{
-						OverlappingEntities[OverlappingCount++] = HitEntity;
-					}
-					else
-					{
-						InvalidCodePath;
-					}
 			}
 			else
 			{
@@ -515,9 +497,27 @@ MoveEntity(game_state *GameState, sim_region *SimRegion, sim_entity *Entity, rea
 		}
 	}
 
-    if(Entity->P.Z < 0)
+	real32 Ground = 0.0f;
+	
+	{
+		rectangle3 EntityRect = RectCenterDim(Entity->P, Entity->Dim);
+		for (uint32 TestHighEntityIndex = 0; TestHighEntityIndex < SimRegion->EntityCount; ++TestHighEntityIndex)
+		{
+			sim_entity *TestEntity = SimRegion->Entities + TestHighEntityIndex;
+			if (CanOverlap(GameState, TestEntity, Entity))
+			{
+				rectangle3 TestEntityRect = RectCenterDim(TestEntity->P, TestEntity->Dim);
+				if (RectangleIntersect(EntityRect, TestEntityRect))
+				{
+					HandleOverlap(GameState, Entity, TestEntity, dt, &Ground);
+				}
+			}
+		}
+	}
+	
+    if(Entity->P.Z < Ground)
     {
-        Entity->P.Z = 0;
+        Entity->P.Z = Ground;
 		Entity->dP.Z = 0;
     }
 
