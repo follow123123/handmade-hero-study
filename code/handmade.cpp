@@ -338,7 +338,7 @@ AddSword(game_state *GameState)
 
 	Entity.Low->Sim.Dim.Y = 0.5f;
 	Entity.Low->Sim.Dim.X = 1.0f;			
-	AddFlag(&Entity.Low->Sim, EntityFlag_Moveable);
+	AddFlags(&Entity.Low->Sim, EntityFlag_Moveable);
 	
 	return Entity;
 }
@@ -350,7 +350,7 @@ AddPlayer(game_state *GameState)
 
 	Entity.Low->Sim.Dim.Y = 0.5f;
 	Entity.Low->Sim.Dim.X = 1.0f;			
-	AddFlag(&Entity.Low->Sim, EntityFlag_Collides|EntityFlag_Moveable);
+	AddFlags(&Entity.Low->Sim, EntityFlag_Collides|EntityFlag_Moveable);
 	
 	InitHitPoints(Entity.Low, 3);
 
@@ -373,7 +373,7 @@ AddWall(game_state *GameState, uint32 AbsTileX, uint32 AbsTileY, uint32 AbsTileZ
 
 	Entity.Low->Sim.Dim.Y = GameState->World->TileSideInMeters;
 	Entity.Low->Sim.Dim.X = Entity.Low->Sim.Dim.Y;			
-	AddFlag(&Entity.Low->Sim, EntityFlag_Collides);
+	AddFlags(&Entity.Low->Sim, EntityFlag_Collides);
 
 	return Entity;
 }
@@ -385,9 +385,10 @@ AddStair(game_state *GameState, uint32 AbsTileX, uint32 AbsTileY, uint32 AbsTile
 													 Vec3(0.0f, 0.0f, 0.5f*GameState->World->TileDepthInMeters));
 	add_low_entity_result Entity = AddLowEntity(GameState, EntityType_Stairwell, P);	
 
-	Entity.Low->Sim.Dim.Y = GameState->World->TileSideInMeters;
-	Entity.Low->Sim.Dim.X = Entity.Low->Sim.Dim.Y;			
-	Entity.Low->Sim.Dim.Z = 1.2f*GameState->World->TileDepthInMeters;			
+	Entity.Low->Sim.Dim.X = GameState->World->TileSideInMeters;			
+	Entity.Low->Sim.Dim.Y = 2.0f*GameState->World->TileSideInMeters;
+	Entity.Low->Sim.Dim.Z = GameState->World->TileDepthInMeters;
+	AddFlags(&Entity.Low->Sim, EntityFlag_Collides);
 
 	return Entity;
 }
@@ -400,7 +401,7 @@ AddMonster(game_state *GameState, uint32 AbsTileX, uint32 AbsTileY, uint32 AbsTi
 
 	Entity.Low->Sim.Dim.Y = GameState->World->TileSideInMeters;
 	Entity.Low->Sim.Dim.X = Entity.Low->Sim.Dim.Y;			
-	AddFlag(&Entity.Low->Sim, EntityFlag_Collides|EntityFlag_Moveable);
+	AddFlags(&Entity.Low->Sim, EntityFlag_Collides|EntityFlag_Moveable);
 
 	InitHitPoints(Entity.Low, 3);
 	
@@ -415,7 +416,7 @@ AddFamiliar(game_state *GameState, uint32 AbsTileX, uint32 AbsTileY, uint32 AbsT
 
 	Entity.Low->Sim.Dim.Y = GameState->World->TileSideInMeters;
 	Entity.Low->Sim.Dim.X = Entity.Low->Sim.Dim.Y;			
-	AddFlag(&Entity.Low->Sim, EntityFlag_Collides|EntityFlag_Moveable);
+	AddFlags(&Entity.Low->Sim, EntityFlag_Collides|EntityFlag_Moveable);
 
 	return Entity;
 }
@@ -910,7 +911,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		    {
 		    	sim_entity *ClosestHero = 0;
 		    	real32 ClosestHeroDSq = Square(10.0f);
-    
+
+#if 0
     			sim_entity *TestEntity = SimRegion->Entities;
     			for (uint32 TestEntityIndex = 0; TestEntityIndex < SimRegion->EntityCount;
 					 ++TestEntityIndex, ++TestEntity)
@@ -926,7 +928,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     					}
     				}
     			}
-    
+#endif
+
     			if (ClosestHero && (ClosestHeroDSq > Square(3.0f)))
     			{
     				real32 Acceleration = 0.5f;
@@ -970,9 +973,11 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		{
 			MoveEntity(GameState, SimRegion, Entity, dt, &MoveSpec, ddP);
 		}
+
+		real32 ZFudge = 1.0f + 0.1f*Entity->P.Z;
 				
-        real32 EntityGroundPointX = ScreenCenterX + MetersToPixels*Entity->P.X;
-        real32 EntityGroundPointY = ScreenCenterY - MetersToPixels*Entity->P.Y;            
+        real32 EntityGroundPointX = ScreenCenterX + ZFudge*MetersToPixels*Entity->P.X;
+        real32 EntityGroundPointY = ScreenCenterY - ZFudge*MetersToPixels*Entity->P.Y;            
         real32 EntityZ = -MetersToPixels*Entity->P.Z;
 		
 		for (uint32 PieceIndex = 0; PieceIndex < PieceGroup.PieceCount; ++PieceIndex)
