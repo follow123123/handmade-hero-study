@@ -102,13 +102,13 @@ GetWorldChunk(world *World, int32 ChunkX, int32 ChunkY, int32 ChunkZ,
 }
 
 internal void
-InitializeWorld(world *World, real32 TileSideInMeters)
+InitializeWorld(world *World, real32 TileSideInMeters, real32 TileDepthInMeters)
 {
 	World->TileSideInMeters = TileSideInMeters;
 	World->ChunkDimInMeters = {(real32)TILES_PER_CHUNK*TileSideInMeters,
-		                        (real32)TILES_PER_CHUNK*TileSideInMeters,
-		                        (real32)TileSideInMeters};
-	World->TileDepthInMeters = (real32)TileSideInMeters;
+		                       (real32)TILES_PER_CHUNK*TileSideInMeters,
+		                       TileDepthInMeters};
+	World->TileDepthInMeters = (real32)TileDepthInMeters;
 	World->FirstFree = 0;
 	
 	for (uint32 ChunkIndex = 0; ChunkIndex < ArrayCount(World->ChunkHash); ++ChunkIndex)
@@ -146,8 +146,9 @@ ChunkPositionFromTilePosition(world *World, int32 AbsTileX, int32 AbsTileY, int3
 							  vec3 AdditionalOffset = Vec3(0, 0, 0))
 {
 	world_position BasePos = {};
-	
-	vec3 Offset = World->TileSideInMeters * Vec3((real32)AbsTileX, (real32)AbsTileY, (real32)AbsTileZ);
+
+	vec3 TileDim = {World->TileSideInMeters, World->TileSideInMeters, World->TileDepthInMeters};
+	vec3 Offset = Hadamard(TileDim, Vec3((real32)AbsTileX, (real32)AbsTileY, (real32)AbsTileZ));
 
 	world_position Result = MapIntoChunkSpace(World, BasePos, AdditionalOffset + Offset);
 	
