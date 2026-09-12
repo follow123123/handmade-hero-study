@@ -12,7 +12,7 @@ struct memory_arena
 	memory_index Used;
 };
 
-internal void
+inline void
 InitializeArena(memory_arena *Arena, memory_index Size, void *Base)
 {
 	Arena->Size = Size;
@@ -112,6 +112,14 @@ struct game_state
 
 	pairwise_collision_rule *CollisionRuleHash[256];
 	pairwise_collision_rule *FirstFreeCollisionRule;
+
+	sim_entity_collision_volume_group *NullCollision;
+	sim_entity_collision_volume_group *SwordCollision;
+	sim_entity_collision_volume_group *StairCollision;
+	sim_entity_collision_volume_group *PlayerCollision;
+	sim_entity_collision_volume_group *MonsterCollision;
+	sim_entity_collision_volume_group *FamiliarCollision;
+	sim_entity_collision_volume_group *WallCollision;
 };
 
 struct entity_visible_piece
