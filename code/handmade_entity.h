@@ -38,4 +38,24 @@ MakeEntitySpatial(sim_entity *Entity, vec3 P, vec3 dP)
 	Entity->dP = dP;
 }
 
+inline vec3
+GetEntityGroundPoint(sim_entity *Entity)
+{
+	vec3 Result = Entity->P + Vec3(0, 0, -0.5f*Entity->Dim.Z);
+
+	return Result;
+}
+
+inline real32
+GetStairGround(sim_entity *Entity, vec3 AtGroundPoint)
+{
+	Assert(Entity->Type == EntityType_Stairwell);
+	
+	rectangle3 RegionRect = RectCenterDim(Entity->P, Entity->Dim);
+	vec3 Bary = Clamp01(GetBarycentric(RegionRect, AtGroundPoint));
+	real32 Result = RegionRect.Min.Z + Bary.Y*Entity->WalkableHeight;
+
+	return Result;
+}
+
 #endif /* HANDMADE_ENTITY_H */

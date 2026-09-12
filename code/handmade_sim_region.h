@@ -69,6 +69,8 @@ struct sim_entity
 	hit_point HitPoint[16];
 
 	entity_reference Sword;
+
+	real32 WalkableHeight;
 };
 
 struct sim_entity_hash
