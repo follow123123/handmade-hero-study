@@ -574,7 +574,7 @@ IsInRectangle(rectangle3 Rectangle, vec3 Test)
 }
 
 inline bool32
-RectangleIntersect(rectangle3 A, rectangle3 B)
+RectanglesIntersect(rectangle3 A, rectangle3 B)
 {
 	bool32 Result = !((B.Max.X <= A.Min.X) ||
 					  (B.Min.X >= A.Max.X) ||
