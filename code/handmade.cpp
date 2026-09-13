@@ -187,6 +187,19 @@ PushRect(entity_visible_piece_group *PieceGroup,
 	PushPiece(PieceGroup, 0, Offset, OffsetZ, Vec2(0, 0), Dim, Color, EntityZC);
 }
 
+inline void
+PushRectOutline(entity_visible_piece_group *PieceGroup,
+				vec2 Offset, real32 OffsetZ, vec2 Dim, vec4 Color, real32 EntityZC=1.0f)
+{
+	real32 Thickness = 0.1f;
+	
+	PushPiece(PieceGroup, 0, (Offset - Vec2(0, 0.5f*Dim.Y)), OffsetZ, Vec2(0, 0), Vec2(Dim.X, Thickness), Color, EntityZC);
+	PushPiece(PieceGroup, 0, (Offset + Vec2(0, 0.5f*Dim.Y)), OffsetZ, Vec2(0, 0), Vec2(Dim.X, Thickness), Color, EntityZC);
+
+	PushPiece(PieceGroup, 0, (Offset - Vec2(0.5f*Dim.X, 0)), OffsetZ, Vec2(0, 0), Vec2(Thickness, Dim.Y), Color, EntityZC);
+	PushPiece(PieceGroup, 0, (Offset + Vec2(0.5f*Dim.X, 0)), OffsetZ, Vec2(0, 0), Vec2(Thickness, Dim.Y), Color, EntityZC);
+}
+
 #pragma pack(push, 1)
 struct bitmap_header
 {
@@ -337,6 +350,17 @@ AddGroundedEntity(game_state *GameState, entity_type Type, world_position P,
 {
 	add_low_entity_result Entity = AddLowEntity(GameState, Type, P);
 	Entity.Low->Sim.Collision = Collision;
+
+	return Entity;
+}
+
+internal add_low_entity_result
+AddStandardRoom(game_state *GameState, uint32 AbsTileX, uint32 AbsTileY, uint32 AbsTileZ)
+{
+	world_position P = ChunkPositionFromTilePosition(GameState->World, AbsTileX, AbsTileY, AbsTileZ);
+	add_low_entity_result Entity = AddGroundedEntity(GameState, EntityType_Space, P, GameState->StandardRoomCollision);
+	
+	AddFlags(&Entity.Low->Sim, EntityFlag_Traversable);
 
 	return Entity;
 }
@@ -549,6 +573,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		GameState->World = PushStruct(&GameState->WorldArena, world);
 		world *World = GameState->World;
 		InitializeWorld(World, 1.4f, 3.0f);
+	
+		uint32 TilesPerWidth = 17;
+		uint32 TilesPerHeight = 9;
 
 		int32 TileSideInPixels = 60;
 		GameState->MetersToPixels = (real32)TileSideInPixels / (real32)World->TileSideInMeters;
@@ -566,6 +593,10 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                                                                GameState->World->TileSideInMeters,
                                                                GameState->World->TileSideInMeters,
                                                                GameState->World->TileDepthInMeters);
+		GameState->StandardRoomCollision = MakeSimpleGroundedCollision(GameState,
+																	   TilesPerWidth*GameState->World->TileSideInMeters,
+																	   TilesPerHeight*GameState->World->TileSideInMeters,
+																	   0.9f*GameState->World->TileDepthInMeters);
 
 		GameState->Backdrop =
 			DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_background.bmp");
@@ -605,8 +636,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		++Bitmap;
 			
 		uint32 RandomNumberIndex = 0;
-		uint32 TilesPerWidth = 17;
-		uint32 TilesPerHeight = 9;
 
 		uint32 ScreenBaseX = 0;
 		uint32 ScreenBaseY = 0;
@@ -657,6 +686,11 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 				DoorTop = true;
 			}
 			
+			AddStandardRoom(GameState,
+							ScreenX*TilesPerWidth + TilesPerWidth/2,
+							ScreenY*TilesPerHeight + TilesPerHeight/2,
+							AbsTileZ);
+
 			for (uint32 TileY = 0; TileY < TilesPerHeight; ++TileY)
 			{
 				for (uint32 TileX = 0; TileX < TilesPerWidth; ++TileX)
@@ -1011,6 +1045,15 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
 			} break;
 
+		    case EntityType_Space:
+		    {
+				for (uint32 VolumeIndex = 0; VolumeIndex < Entity->Collision->VolumeCount; ++VolumeIndex)
+				{
+					sim_entity_collision_volume *Volume = Entity->Collision->Volumes + VolumeIndex;
+					PushRectOutline(&PieceGroup, Volume->OffsetP.XY, 0, Volume->Dim.XY, Vec4(0, 0.5f, 1.0f, 1.0f), 0);
+				}
+		    } break;
+			
 		    default:
 			{
 				InvalidCodePath;
