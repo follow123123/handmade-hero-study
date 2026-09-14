@@ -238,6 +238,22 @@ operator*=(vec2 &B, real32 A)
 }
 
 inline vec2
+Vec2i(int32 X, int32 Y)
+{
+	vec2 Result = {(real32)X, (real32)Y};
+
+	return Result;
+}
+
+inline vec2
+Vec2i(uint32 X, uint32 Y)
+{
+	vec2 Result = {(real32)X, (real32)Y};
+
+	return Result;
+}
+
+inline vec2
 Hadamard(vec2 A, vec2 B)
 {
 	vec2 Result = {A.X*B.X, A.Y*B.Y};

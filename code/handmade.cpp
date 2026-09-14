@@ -379,7 +379,6 @@ AddSword(game_state *GameState)
 internal add_low_entity_result
 AddPlayer(game_state *GameState)
 {
-	vec3 Dim = {1.0f, 0.5f, 1.2f};
 	add_low_entity_result Entity = AddGroundedEntity(GameState, EntityType_Hero, GameState->CameraP,
 													 GameState->PlayerCollision); 
 
@@ -402,9 +401,6 @@ internal add_low_entity_result
 AddWall(game_state *GameState, uint32 AbsTileX, uint32 AbsTileY, uint32 AbsTileZ)
 {
 	world_position P = ChunkPositionFromTilePosition(GameState->World, AbsTileX, AbsTileY, AbsTileZ);
-	vec3 Dim = {GameState->World->TileSideInMeters,
-		        GameState->World->TileSideInMeters,
-		        GameState->World->TileDepthInMeters};
 	add_low_entity_result Entity = AddGroundedEntity(GameState, EntityType_Wall, P, GameState->WallCollision);	
 
 	AddFlags(&Entity.Low->Sim, EntityFlag_Collides);
@@ -416,9 +412,6 @@ internal add_low_entity_result
 AddStair(game_state *GameState, uint32 AbsTileX, uint32 AbsTileY, uint32 AbsTileZ)
 {
 	world_position P = ChunkPositionFromTilePosition(GameState->World, AbsTileX, AbsTileY, AbsTileZ);
-	vec3 Dim = {GameState->World->TileSideInMeters,
-		        2.0f*GameState->World->TileSideInMeters,
-		        1.1f*GameState->World->TileDepthInMeters};
 	add_low_entity_result Entity = AddGroundedEntity(GameState, EntityType_Stairwell, P,
 													 GameState->StairCollision);	
 
@@ -433,7 +426,6 @@ internal add_low_entity_result
 AddMonster(game_state *GameState, uint32 AbsTileX, uint32 AbsTileY, uint32 AbsTileZ)
 {
 	world_position P = ChunkPositionFromTilePosition(GameState->World, AbsTileX, AbsTileY, AbsTileZ);
-	vec3 Dim = {1.0f, 0.5f, 0.5f};
 	add_low_entity_result Entity = AddGroundedEntity(GameState, EntityType_Monster, P, GameState->MonsterCollision);	
 
 	AddFlags(&Entity.Low->Sim, EntityFlag_Collides|EntityFlag_Moveable);
@@ -447,7 +439,6 @@ internal add_low_entity_result
 AddFamiliar(game_state *GameState, uint32 AbsTileX, uint32 AbsTileY, uint32 AbsTileZ)
 {
 	world_position P = ChunkPositionFromTilePosition(GameState->World, AbsTileX, AbsTileY, AbsTileZ);
-	vec3 Dim = {1.0f, 0.5f, 0.5f};
 	add_low_entity_result Entity = AddGroundedEntity(GameState, EntityType_Familiar, P,
 													 GameState->FamiliarCollision);	
 
@@ -556,6 +547,52 @@ MakeNullCollision(game_state *GameState)
 	return Group;
 }
 
+internal void
+DrawTestGround(game_state *GameState, game_offscreen_buffer *Buffer)
+{
+	vec2 Center = 0.5f * Vec2i(Buffer->Width, Buffer->Height);
+	
+	uint32 RandomNumberIndex = 0;
+	for (uint32 GrassIndex = 0; GrassIndex < 100; ++GrassIndex)
+	{
+		Assert(RandomNumberIndex < ArrayCount(RandomNumberTable));
+
+		loaded_bitmap *Stamp;
+		if (RandomNumberTable[RandomNumberIndex] % 2)
+		{
+			Stamp = GameState->Grass + RandomNumberTable[RandomNumberIndex++] % ArrayCount(GameState->Grass);
+		}
+		else
+		{
+			Stamp = GameState->Stone + RandomNumberTable[RandomNumberIndex++] % ArrayCount(GameState->Stone);
+		}
+
+		real32 Radius = 5.0f;
+		vec2 BitmapCenter = 0.5f * Vec2i(Stamp->Width, Stamp->Height);
+		vec2 Offset = {2.0f*(real32)RandomNumberTable[RandomNumberIndex++]/(real32)MaxRandomNumber - 1,
+			           2.0f*(real32)RandomNumberTable[RandomNumberIndex++]/(real32)MaxRandomNumber - 1};
+		vec2 P = Center + GameState->MetersToPixels*Radius*Offset - BitmapCenter;
+
+		DrawBitmap(Buffer, Stamp, P.X, P.Y);
+	}
+
+	for (uint32 GrassIndex = 0; GrassIndex < 100; ++GrassIndex)
+	{
+		Assert(RandomNumberIndex < ArrayCount(RandomNumberTable));
+
+		loaded_bitmap *Stamp = Stamp = GameState->Tuft + RandomNumberTable[RandomNumberIndex++] % ArrayCount(GameState->Tuft);
+
+		real32 Radius = 5.0f;
+		vec2 BitmapCenter = 0.5f * Vec2i(Stamp->Width, Stamp->Height);
+		vec2 Offset = {2.0f*(real32)RandomNumberTable[RandomNumberIndex++]/(real32)MaxRandomNumber - 1,
+			           2.0f*(real32)RandomNumberTable[RandomNumberIndex++]/(real32)MaxRandomNumber - 1};
+		vec2 P = Center + GameState->MetersToPixels*Radius*Offset - BitmapCenter;
+
+		DrawBitmap(Buffer, Stamp, P.X, P.Y);
+	}
+}
+
+
 extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {
     Assert((&Input->Controllers[0].Terminator - &Input->Controllers[0].Buttons[0]) 
@@ -598,6 +635,27 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 																	   TilesPerHeight*GameState->World->TileSideInMeters,
 																	   0.9f*GameState->World->TileDepthInMeters);
 
+		GameState->Grass[0] =
+			DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test2/grass00.bmp");		
+		GameState->Grass[1] =
+			DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test2/grass01.bmp");		
+
+		GameState->Tuft[0] =
+			DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test2/tuft00.bmp");		
+		GameState->Tuft[1] =
+			DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test2/tuft01.bmp");		
+		GameState->Tuft[2] =
+			DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test2/tuft02.bmp");		
+			
+		GameState->Stone[0] =
+			DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test2/stone00.bmp");		
+		GameState->Stone[1] =
+			DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test2/stone01.bmp");		
+		GameState->Stone[2] =
+			DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test2/stone02.bmp");		
+		GameState->Stone[3] =
+			DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test2/stone03.bmp");		
+		
 		GameState->Backdrop =
 			DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_background.bmp");
 		GameState->Shadow =
@@ -608,6 +666,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 			DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test2/rock02.bmp");
 		GameState->Sword =
 			DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test2/rock03.bmp");
+		
 		
 		hero_bitmaps *Bitmap = GameState->HeroBitmaps;
 		
@@ -892,9 +951,11 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 #if 0
 	DrawBitmap(Buffer, &GameState->Backdrop, 0, 0); 
 #else
-	DrawRectangle(Buffer, vec2{0, 0}, vec2{(real32)Buffer->Width, (real32)Buffer->Height}, 0.5f, 0.5f, 0.5f);
+	DrawRectangle(Buffer, vec2{0, 0}, Vec2i(Buffer->Width, Buffer->Height, 0.5f, 0.5f, 0.5f);
 #endif
 	
+	DrawTestGround(GameState, Buffer);
+
 	real32 ScreenCenterX = 0.5f*(real32)Buffer->Width;	
 	real32 ScreenCenterY = 0.5f*(real32)Buffer->Height;
 		
