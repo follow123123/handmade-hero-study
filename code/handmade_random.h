@@ -520,4 +520,67 @@ global_variable uint32 RandomNumberTable[] =
     0x0d5d155, 0x4363005, 0x2cbd064, 0x5c18f03, 0x214bedd, 0x42ef202, 0x41827cd, 0x27a8fe9,
 };
 
+struct random_series
+{
+	uint32 Index;
+};
+
+inline random_series
+RandomSeed(uint32 Seed)
+{
+	random_series Result;
+	Result.Index = Seed % ArrayCount(RandomNumberTable);
+
+	return Result;
+}
+
+inline uint32
+RandomNextUint32(random_series *Series)
+{
+	uint32 Result = RandomNumberTable[Series->Index++];
+
+	return Result;
+}
+
+inline uint32
+RandomChoice(random_series *Series, uint32 Range)
+{
+	uint32 Result = RandomNextUint32(Series) % Range;
+
+	return Result;
+}
+
+inline real32
+RandomUnilateral(random_series *Series)
+{
+	real32 Divisor = 1.0f / (real32)MaxRandomNumber;
+	real32 Result = Divisor * (real32)RandomNextUint32(Series);	
+
+	return Result;
+}
+
+inline real32
+RandomBilateral(random_series *Series)
+{
+	real32 Result = 2.0f*RandomUnilateral(Series) - 1.0f;
+
+	return Result;
+}
+
+inline real32
+RandomBetween(random_series *Series, real32 Min, real32 Max)
+{
+	real32 Result = Lerp((real32)RandomUnilateral(Series), Min, Max);
+
+	return Result;
+}
+
+inline int32
+RandomBetween(random_series *Series, int32 Min, int32 Max)
+{
+	int32 Result = Min + RandomChoice(Series, Max-Min);
+
+	return Result;
+}
+
 #endif /* HANDMADE_RANDOM_H */
