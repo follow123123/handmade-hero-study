@@ -566,12 +566,14 @@ MakeNullCollision(game_state *GameState)
 }
 
 internal void
-DrawTestGround(game_state *GameState, loaded_bitmap *Buffer)
+DrawGroundChunk(game_state *GameState, loaded_bitmap *Buffer, world_position *ChunkP)
 {
-	random_series Series = RandomSeed(1234);	
+	random_series Series = RandomSeed(139*ChunkP->ChunkX + 593*ChunkP->ChunkY + 329*ChunkP->ChunkZ);	
 	
-	vec2 Center = 0.5f * Vec2i(Buffer->Width, Buffer->Height);
-	for (uint32 GrassIndex = 0; GrassIndex < 100; ++GrassIndex)
+	real32 Width = (real32)Buffer->Width;
+	real32 Height = (real32)Buffer->Height;	
+	vec2 Center = 0.5f * Vec2(Width, Height);
+	for (uint32 GrassIndex = 0; GrassIndex < 1000; ++GrassIndex)
 	{
 		loaded_bitmap *Stamp;
 
@@ -584,10 +586,9 @@ DrawTestGround(game_state *GameState, loaded_bitmap *Buffer)
 			Stamp = GameState->Stone + RandomChoice(&Series, ArrayCount(GameState->Stone));
 		}
 
-		real32 Radius = 5.0f;
 		vec2 BitmapCenter = 0.5f * Vec2i(Stamp->Width, Stamp->Height);
-		vec2 Offset = {RandomBilateral(&Series), RandomBilateral(&Series)};
-		vec2 P = Center + GameState->MetersToPixels*Radius*Offset - BitmapCenter;
+		vec2 Offset = {Width*RandomBilateral(&Series), Height*RandomBilateral(&Series)};
+		vec2 P = Offset - BitmapCenter;
 
 		DrawBitmap(Buffer, Stamp, P.X, P.Y);
 	}
@@ -596,10 +597,9 @@ DrawTestGround(game_state *GameState, loaded_bitmap *Buffer)
 	{
 		loaded_bitmap *Stamp = Stamp = GameState->Tuft + RandomChoice(&Series, ArrayCount(GameState->Tuft));
 
-		real32 Radius = 5.0f;
 		vec2 BitmapCenter = 0.5f * Vec2i(Stamp->Width, Stamp->Height);
-		vec2 Offset = {RandomBilateral(&Series), RandomBilateral(&Series)};
-		vec2 P = Center + GameState->MetersToPixels*Radius*Offset - BitmapCenter;
+		vec2 Offset = {Width*RandomBilateral(&Series), Height*RandomBilateral(&Series)};
+		vec2 P = Offset - BitmapCenter;
 
 		DrawBitmap(Buffer, Stamp, P.X, P.Y);
 	}
@@ -721,7 +721,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
         Bitmap->Align = Vec2(72, 182);
 		++Bitmap;
 			
-		uint32 RandomNumberIndex = 0;
+		random_series Series = RandomSeed(1234);
 
 		uint32 ScreenBaseX = 0;
 		uint32 ScreenBaseY = 0;
@@ -738,20 +738,10 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		bool32 DoorDown = false;		
 		for (uint32 ScreenIndex = 0; ScreenIndex < 2000; ++ScreenIndex)
 		{
-			Assert(RandomNumberIndex < ArrayCount(RandomNumberTable));
+			uint32 DoorDirection = RandomChoice(&Series, 2);
 
-			uint32 RandomChoice;
- 			if (DoorUp || DoorDown)
-			{
-				RandomChoice = RandomNumberTable[RandomNumberIndex++] % 2;								
-			}
-			else
-			{
-				RandomChoice = RandomNumberTable[RandomNumberIndex++] % 3;
-			}
-			
 			bool32 CreatedZDoor = false;
-			if (RandomChoice == 2)
+			if (DoorDirection == 2)
 			{
 				CreatedZDoor = true;
 				if (AbsTileZ == 0)
@@ -763,7 +753,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 					DoorDown = true;
 				}
 			}
-			else if (RandomChoice == 1)
+			else if (DoorDirection == 1)
 			{
 				DoorRight = true;
 			}
@@ -836,7 +826,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 			DoorRight = false;
 			DoorTop = false;
 
-			if (RandomChoice == 2)
+			if (DoorDirection == 2)
 			{
 				if (AbsTileZ == ScreenBaseZ)
 				{
@@ -847,7 +837,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 					AbsTileZ = ScreenBaseZ;
 				}
 			}
-			else if (RandomChoice == 1)
+			else if (DoorDirection == 1)
 			{
 				ScreenX += 1;
 			}
@@ -879,8 +869,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		AddMonster(GameState, CameraTileX - 3, CameraTileY + 2, CameraTileZ);
 		for (int FamiliarIndex = 0; FamiliarIndex < 1; ++FamiliarIndex)
 		{
-            int32 FamiliarOffsetX = (RandomNumberTable[RandomNumberIndex++] % 10) - 7;
-            int32 FamiliarOffsetY = (RandomNumberTable[RandomNumberIndex++] % 10) - 3;
+            int32 FamiliarOffsetX = RandomBetween(&Series, -7, 7);
+            int32 FamiliarOffsetY = RandomBetween(&Series, -3, -1);
 			if ((FamiliarOffsetX != 0) || (FamiliarOffsetY != 0))
 			{
 				AddFamiliar(GameState, CameraTileX + FamiliarOffsetX, CameraTileY + FamiliarOffsetY, CameraTileZ);
@@ -888,8 +878,15 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
 		}
 
-		GameState->GroundBuffer = MakeEmptyBitmap(&GameState->WorldArena, 512, 512);
-		DrawTestGround(GameState, &GameState->GroundBuffer);
+		real32 ScreenWidth = (real32)Buffer->Width;
+		real32 ScreenHeight = (real32)Buffer->Height;
+		real32 MaximumZScale = 0.5f;
+		real32 GroundOverscan = 1.5f;
+		uint32 GroundBufferWidth = (uint32)(ScreenWidth*GroundOverscan);
+		uint32 GroundBufferHeight = (uint32)(ScreenHeight*GroundOverscan);
+		GameState->GroundBuffer = MakeEmptyBitmap(&GameState->WorldArena, GroundBufferWidth, GroundBufferHeight);
+		GameState->GroundBufferP = GameState->CameraP;
+		DrawGroundChunk(GameState, &GameState->GroundBuffer, &GameState->GroundBufferP);
 		
 		Memory->IsInitialized = true;		
     }
@@ -986,14 +983,20 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 	DrawBuffer->Memory = Buffer->Memory;	
 	
 	DrawRectangle(DrawBuffer, vec2{0, 0}, Vec2i(DrawBuffer->Width, DrawBuffer->Height), 0.5f, 0.5f, 0.5f);
-	DrawBitmap(DrawBuffer, &GameState->GroundBuffer, 0, 0);	
 
 	real32 ScreenCenterX = 0.5f*(real32)DrawBuffer->Width;	
 	real32 ScreenCenterY = 0.5f*(real32)DrawBuffer->Height;
 		
+	vec2 Ground = Vec2(ScreenCenterX - 0.5f*(real32)GameState->GroundBuffer.Width,
+					   ScreenCenterY - 0.5f*(real32)GameState->GroundBuffer.Height);
+	vec3 Delta = Subtract(GameState->World, &GameState->GroundBufferP, &GameState->CameraP);
+	Delta.Y *= -1;
+	Ground += GameState->MetersToPixels * Delta.XY;
+	DrawBitmap(DrawBuffer, &GameState->GroundBuffer, Ground.X, Ground.Y);	
+
 	entity_visible_piece_group PieceGroup = {};
 	PieceGroup.GameState = GameState;
-	
+
 	sim_entity *Entity = SimRegion->Entities;
 	for (uint32 EntityIndex = 0; EntityIndex < SimRegion->EntityCount;
 		 ++EntityIndex, ++Entity)
@@ -1140,12 +1143,14 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
 		    case EntityType_Space:
 		    {
+#if 0
 				for (uint32 VolumeIndex = 0; VolumeIndex < Entity->Collision->VolumeCount; ++VolumeIndex)
 				{
 					sim_entity_collision_volume *Volume = Entity->Collision->Volumes + VolumeIndex;
 					PushRectOutline(&PieceGroup, Volume->OffsetP.XY, 0, Volume->Dim.XY, Vec4(0, 0.5f, 1.0f, 1.0f), 0);
 				}
-		    } break;
+#endif
+			} break;
 			
 		    default:
 			{
