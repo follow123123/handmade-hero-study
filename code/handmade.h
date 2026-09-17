@@ -10,6 +10,14 @@ struct memory_arena
 	memory_index Size;
 	uint8 *Base;
 	memory_index Used;
+
+	int32 TempCount;
+};
+
+struct temporary_memory
+{
+	memory_arena *Arena;
+	memory_index Used;
 };
 
 inline void
@@ -18,6 +26,7 @@ InitializeArena(memory_arena *Arena, memory_index Size, void *Base)
 	Arena->Size = Size;
 	Arena->Base = (uint8 *)Base;
 	Arena->Used = 0;
+	Arena->TempCount = 0;
 }
 
 #define PushStruct(Arena, type) (type *)_PushSize(Arena, sizeof(type))
@@ -41,6 +50,34 @@ ZeroSize(memory_index Size, void *Ptr)
 	{
 		*Byte++ = 0;
 	}
+}
+
+inline temporary_memory
+BeginTemporaryMemory(memory_arena *Arena)
+{
+	temporary_memory Result;
+	Result.Arena = Arena;
+	Result.Used = Arena->Used;
+
+	++Arena->TempCount;
+	
+	return Result;
+}
+
+inline void
+EndTemporaryMemory(temporary_memory TempMem)
+{
+	memory_arena *Arena = TempMem.Arena;
+	Assert(Arena->Used >= TempMem.Used);
+	Arena->Used = TempMem.Used;
+	Assert(Arena->TempCount > 0);
+	--Arena->TempCount;
+}
+
+inline void
+CheckArena(memory_arena *Arena)
+{
+	Assert(Arena->TempCount == 0);
 }
 
 #include "handmade_intrinsics.h"
@@ -89,10 +126,17 @@ struct pairwise_collision_rule
 	pairwise_collision_rule *NextInHash;
 };
 
+struct ground_buffer
+{
+	world_position P; // NOTE: invalid P means hasnt been filled, valid P is center of bitmap
+	void *Memory;
+};
+
 struct game_state
 {
-	memory_arena WorldArena;
+	memory_arena WorldArena;	
 	world *World;
+	
 	real32 MetersToPixels;
 	
 	uint32 CameraFollowingEntityIndex;
@@ -126,9 +170,15 @@ struct game_state
 	sim_entity_collision_volume_group *FamiliarCollision;
 	sim_entity_collision_volume_group *WallCollision;
 	sim_entity_collision_volume_group *StandardRoomCollision;
+};
 
-	loaded_bitmap GroundBuffer;
-	world_position GroundBufferP;
+struct transient_state
+{
+	bool32 IsInitialized;
+	memory_arena TranArena;
+	uint32 GroundBufferCount;
+	loaded_bitmap GroundBitmapTemplate;
+	ground_buffer *GroundBuffers;
 };
 
 struct entity_visible_piece
