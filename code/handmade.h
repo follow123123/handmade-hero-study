@@ -137,7 +137,10 @@ struct game_state
 	memory_arena WorldArena;	
 	world *World;
 	
+	real32 TypicalFloorHeight;
+
 	real32 MetersToPixels;
+	real32 PixelsToMeters;
 	
 	uint32 CameraFollowingEntityIndex;
 	world_position CameraP;

@@ -29,8 +29,6 @@ struct world_chunk
 
 struct world
 {
-	real32 TileSideInMeters;
-	real32 TileDepthInMeters;
 	vec3 ChunkDimInMeters;
 	
 	world_entity_block *FirstFree;

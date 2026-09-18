@@ -1,7 +1,7 @@
 #define TILE_CHUNK_SAFE_MARGIN (INT32_MAX/64)
 #define TILE_CHUNK_UNINITIALIZED INT32_MAX
 
-#define TILES_PER_CHUNK 16
+#define TILES_PER_CHUNK 8
 
 inline bool32
 IsValid(world_position P)
@@ -102,13 +102,9 @@ GetWorldChunk(world *World, int32 ChunkX, int32 ChunkY, int32 ChunkZ,
 }
 
 internal void
-InitializeWorld(world *World, real32 TileSideInMeters, real32 TileDepthInMeters)
+InitializeWorld(world *World, vec3 ChunkDimInMeters)
 {
-	World->TileSideInMeters = TileSideInMeters;
-	World->ChunkDimInMeters = {(real32)TILES_PER_CHUNK*TileSideInMeters,
-		                       (real32)TILES_PER_CHUNK*TileSideInMeters,
-		                       TileDepthInMeters};
-	World->TileDepthInMeters = (real32)TileDepthInMeters;
+	World->ChunkDimInMeters = ChunkDimInMeters;
 	World->FirstFree = 0;
 	
 	for (uint32 ChunkIndex = 0; ChunkIndex < ArrayCount(World->ChunkHash); ++ChunkIndex)
@@ -139,22 +135,6 @@ MapIntoChunkSpace(world *World, world_position BasePos, vec3 Offset)
 	RecanonicalizeCoord(World->ChunkDimInMeters.Z, &Result.ChunkZ, &Result._Offset.Z);
 
 	return Result;	
-}
-
-inline world_position
-ChunkPositionFromTilePosition(world *World, int32 AbsTileX, int32 AbsTileY, int32 AbsTileZ,
-							  vec3 AdditionalOffset = Vec3(0, 0, 0))
-{
-	world_position BasePos = {};
-
-	vec3 TileDim = {World->TileSideInMeters, World->TileSideInMeters, World->TileDepthInMeters};
-	vec3 Offset = Hadamard(TileDim, Vec3((real32)AbsTileX, (real32)AbsTileY, (real32)AbsTileZ));
-
-	world_position Result = MapIntoChunkSpace(World, BasePos, AdditionalOffset + Offset);
-	
-	Assert(IsCanonical(World, Result._Offset));
-	
-	return Result;
 }
 
 inline vec3
