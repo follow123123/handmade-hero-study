@@ -129,7 +129,7 @@ struct pairwise_collision_rule
 struct ground_buffer
 {
 	world_position P; // NOTE: invalid P means hasnt been filled, valid P is center of bitmap
-	void *Memory;
+	loaded_bitmap Bitmap;
 };
 
 struct game_state
@@ -180,26 +180,7 @@ struct transient_state
 	bool32 IsInitialized;
 	memory_arena TranArena;
 	uint32 GroundBufferCount;
-	loaded_bitmap GroundBitmapTemplate;
 	ground_buffer *GroundBuffers;
-};
-
-struct entity_visible_piece
-{
-	loaded_bitmap *Bitmap;
-	vec2 Offset;
-	real32 OffsetZ;
-	real32 EntityZC;
-	real32 R, G, B, A;
-	vec2 Dim;
-};
-
-struct entity_visible_piece_group
-{
-	uint32 PieceCount;
-	entity_visible_piece Pieces[32];
-
-	game_state *GameState;
 };
 
 inline low_entity *
