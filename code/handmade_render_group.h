@@ -29,8 +29,7 @@ struct render_entity_basis
 struct render_entry_clear
 {
 	render_group_entry_header Header;
-	real32 R, G, B, A;
-	vec2 Dim;
+	vec4 Color;
 };
 
 struct render_entry_bitmap

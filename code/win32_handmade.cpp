@@ -1169,6 +1169,7 @@ WinMain(
 				uint64 LastCycleCount = __rdtsc();
 				while (GlobalRunning)
 				{
+					NewInput->ExecutableReloaded = false;
 					NewInput->dtForFrame = TargetSecondsPerFrame;
 		  
 					FILETIME NewDLLWriteTime = Win32GetLastWriteTime(SourceGameCodeDLLFullPath);
@@ -1178,7 +1179,7 @@ WinMain(
 						Game = Win32LoadGameCode(SourceGameCodeDLLFullPath,
 												 TempGameCodeDLLFullPath,
 												 GameCodeLockFullPath);
-						LoadCounter = 0;
+						NewInput->ExecutableReloaded = true;
 					}
 		    
 					game_controller_input *OldKeyboardController = GetController(OldInput, 0);
