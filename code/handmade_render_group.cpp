@@ -208,7 +208,31 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_bitmap *OutputBuffer)
      			BaseAddress += sizeof(*Entry);			
      		} break;
      
-		    InvalidDefaultCase;
+		    case RenderGroupEntryType_render_entry_coordinate_system:
+		    {
+				render_entry_coordinate_system *Entry = (render_entry_coordinate_system *)Header;
+
+				vec2 Dim = {2, 2};
+				vec2 P = Entry->Origin;
+				DrawRectangle(OutputBuffer, P - Dim, P + Dim, Entry->Color.r, Entry->Color.g, Entry->Color.b);
+
+				P = Entry->Origin + Entry->XAxis;
+				DrawRectangle(OutputBuffer, P - Dim, P + Dim, Entry->Color.r, Entry->Color.g, Entry->Color.b);
+
+				P = Entry->Origin + Entry->YAxis;
+				DrawRectangle(OutputBuffer, P - Dim, P + Dim, Entry->Color.r, Entry->Color.g, Entry->Color.b);
+
+				for (uint32 Index = 0; Index < ArrayCount(Entry->Points); ++Index)
+				{
+					vec2 Point = Entry->Points[Index];
+					P = Entry->Origin + Point.x*Entry->XAxis + Point.y*Entry->YAxis;
+					DrawRectangle(OutputBuffer, P - Dim, P + Dim, Entry->Color.r, Entry->Color.g, Entry->Color.b);
+				}
+
+				BaseAddress += sizeof(*Entry);
+    		} break;
+
+			InvalidDefaultCase;
 		}		
 	}
 }
@@ -299,4 +323,19 @@ Clear(render_group *RenderGroup, vec4 Color)
 	{
 		Entry->Color = Color;
 	}
+}
+
+inline render_entry_coordinate_system *
+CoordinateSystem(render_group *RenderGroup, vec2 Origin, vec2 XAxis, vec2 YAxis, vec4 Color)
+{
+	render_entry_coordinate_system *Entry = PushRenderElement(RenderGroup, render_entry_coordinate_system);
+	if (Entry)
+	{
+		Entry->Origin = Origin;
+		Entry->XAxis = XAxis;
+		Entry->YAxis = YAxis;
+		Entry->Color = Color;
+	}
+
+	return Entry;
 }

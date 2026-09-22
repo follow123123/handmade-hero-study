@@ -11,6 +11,7 @@ enum render_group_entry_type
 	RenderGroupEntryType_render_entry_clear,
 	RenderGroupEntryType_render_entry_bitmap,
 	RenderGroupEntryType_render_entry_rectangle,
+	RenderGroupEntryType_render_entry_coordinate_system,
 };
 
 struct render_group_entry_header
@@ -47,6 +48,17 @@ struct render_entry_rectangle
 	render_entity_basis EntityBasis;
 	real32 R, G, B, A;
 	vec2 Dim;
+};
+
+struct render_entry_coordinate_system
+{
+	render_group_entry_header Header;
+	vec2 Origin;
+	vec2 XAxis;
+	vec2 YAxis;
+	vec4 Color;
+
+	vec2 Points[16];
 };
 
 struct render_group
