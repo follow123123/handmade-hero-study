@@ -295,6 +295,14 @@ Clamp01(vec2 Value)
 	return Result;
 }
 
+inline vec2
+Perp(vec2 A)
+{
+	vec2 Result = {-A.y, A.x};
+
+	return Result;
+}
+
 // NOTE vec3 operation
 
 inline vec3

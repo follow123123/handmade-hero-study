@@ -47,6 +47,72 @@ DrawRectangle(loaded_bitmap *Buffer, vec2 vMin, vec2 vMax, real32 R, real32 G, r
 }
 
 internal void
+DrawRectangleSlowly(loaded_bitmap *Buffer, vec2 Origin, vec2 XAxis, vec2 YAxis, vec4 Color)
+{
+	uint32 Color32 = ((RoundReal32ToUInt32(Color.A * 255.0f) << 24) |
+					  (RoundReal32ToUInt32(Color.r * 255.0f) << 16) |
+					  (RoundReal32ToUInt32(Color.g * 255.0f) << 8) |
+					  (RoundReal32ToUInt32(Color.b * 255.0f) << 0));
+
+	int WidthMax = Buffer->Width;
+	int HeightMax = Buffer->Height;
+	
+	int XMin = WidthMax;
+	int XMax = 0;
+	int YMin = HeightMax;
+	int YMax = 0;
+
+	vec2 P[4] = {Origin, Origin + XAxis, Origin + YAxis, Origin + XAxis + YAxis};
+	for (int PIndex = 0; PIndex < ArrayCount(P); ++PIndex)
+	{
+		vec2 TestP = P[PIndex];
+		int FloorX = FloorReal32ToInt32(TestP.x);
+		int CeilX = CeilReal32ToInt32(TestP.x);
+		int FloorY = FloorReal32ToInt32(TestP.y);
+		int CeilY = CeilReal32ToInt32(TestP.y);
+
+		if (FloorX < XMin) {XMin = FloorX;}
+		if (FloorY < YMin) {YMin = FloorY;}
+		if (CeilX > XMax) {XMax = CeilX;}
+		if (CeilY > YMax) {YMax = CeilY;}
+	}
+
+	if (XMin < 0) {XMin = 0;}
+	if (YMin < 0) {YMin = 0;}
+	if (XMax > WidthMax) {XMax = WidthMax;}
+	if (YMax > HeightMax) {YMax = HeightMax;}
+
+	uint8 *Row = ((uint8 *)Buffer->Memory
+				  + XMin * BITMAP_BYTES_PER_PIXEL
+				  + YMin * Buffer->Pitch);
+	for (int Y = YMin; Y < YMax; ++Y)
+	{
+		uint32 *Pixel = (uint32 *)Row;
+		for (int X = XMin; X < XMax; ++X)
+		{
+			vec2 PxielP = Vec2i(X, Y);
+			
+			real32 Edge0 = Inner(PxielP - Origin, -Perp(XAxis));
+			real32 Edge1 = Inner(PxielP - (Origin + XAxis), -Perp(YAxis));
+			real32 Edge2 = Inner(PxielP - (Origin + XAxis + YAxis), Perp(XAxis));
+			real32 Edge3 = Inner(PxielP - (Origin + YAxis), Perp(YAxis));
+
+			if ((Edge0 < 0) &&
+				(Edge1 < 0) &&
+				(Edge2 < 0) &&
+				(Edge3 < 0))
+			{
+				*Pixel = Color32;
+			}
+
+			++Pixel;
+		}
+
+		Row += Buffer->Pitch;
+	}
+}
+
+internal void
 DrawRectangleOutline(loaded_bitmap *Buffer, vec2 vMin, vec2 vMax, vec3 Color, real32 R=2.0f)
 {		
 	DrawRectangle(Buffer, Vec2(vMin.x - R, vMin.y - R), Vec2(vMax.x + R, vMin.y + R), Color.r, Color.g, Color.b);
@@ -212,23 +278,31 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_bitmap *OutputBuffer)
 		    {
 				render_entry_coordinate_system *Entry = (render_entry_coordinate_system *)Header;
 
+				vec4 Color = {1, 1, 0, 1};
 				vec2 Dim = {2, 2};
 				vec2 P = Entry->Origin;
-				DrawRectangle(OutputBuffer, P - Dim, P + Dim, Entry->Color.r, Entry->Color.g, Entry->Color.b);
+				vec2 vMax = Entry->Origin + Entry->XAxis + Entry->YAxis;
+				
+				DrawRectangleSlowly(OutputBuffer, P, Entry->XAxis, Entry->YAxis, Entry->Color);
+
+				DrawRectangle(OutputBuffer, P - Dim, P + Dim, Color.r, Color.g, Color.b);
 
 				P = Entry->Origin + Entry->XAxis;
-				DrawRectangle(OutputBuffer, P - Dim, P + Dim, Entry->Color.r, Entry->Color.g, Entry->Color.b);
+				DrawRectangle(OutputBuffer, P - Dim, P + Dim, Color.r, Color.g, Color.b);
 
 				P = Entry->Origin + Entry->YAxis;
-				DrawRectangle(OutputBuffer, P - Dim, P + Dim, Entry->Color.r, Entry->Color.g, Entry->Color.b);
+				DrawRectangle(OutputBuffer, P - Dim, P + Dim, Color.r, Color.g, Color.b);
 
+				DrawRectangle(OutputBuffer, vMax - Dim, vMax + Dim, Color.r, Color.g, Color.b);
+				
+#if 0
 				for (uint32 Index = 0; Index < ArrayCount(Entry->Points); ++Index)
 				{
 					vec2 Point = Entry->Points[Index];
 					P = Entry->Origin + Point.x*Entry->XAxis + Point.y*Entry->YAxis;
-					DrawRectangle(OutputBuffer, P - Dim, P + Dim, Entry->Color.r, Entry->Color.g, Entry->Color.b);
+					DrawRectangle(OutputBuffer, P - Dim, P + Dim, Color.r, Color.g, Color.b);
 				}
-
+#endif
 				BaseAddress += sizeof(*Entry);
     		} break;
 
