@@ -37,11 +37,11 @@ union vec4
 {
 	struct
 	{
-		real32 x, y, z, W;
+		real32 x, y, z, w;
 	};
 	struct
 	{
-		real32 r, g, b, A;
+		real32 r, g, b, a;
 	};
 	real32 E[4];
 };
@@ -95,7 +95,7 @@ Vec4(real32 X, real32 Y, real32 Z, real32 W)
 	Result.x = X;
 	Result.y = Y;
 	Result.z = Z;
-	Result.W = W;
+	Result.w = W;
 
 	return Result;
 }
@@ -170,7 +170,7 @@ SafeRatio1(real32 Numerator, real32 Divisor)
 	return Result;
 }
 
-// vec2
+// NOTE vec2
 
 inline vec2
 operator+(vec2 A, vec2 B)
@@ -303,6 +303,14 @@ Perp(vec2 A)
 	return Result;
 }
 
+inline vec2
+Lerp(real32 t, vec2 A, vec2 B)
+{
+	vec2 Result = (1.0f - t)*A + t*B;
+
+	return Result;
+}
+
 // NOTE vec3 operation
 
 inline vec3
@@ -417,6 +425,157 @@ inline real32
 Length(vec3 A)
 {
 	real32 Result = SquareRoot(Inner(A, A));
+
+	return Result;
+}
+
+inline vec3
+Lerp(real32 t, vec3 A, vec3 B)
+{
+	vec3 Result = (1.0f - t)*A + t*B;
+
+	return Result;
+}
+
+// NOTE vec4
+
+inline vec4
+operator+(vec4 A, vec4 B)
+{
+	vec4 Result;
+	Result.x = A.x + B.x;
+	Result.y = A.y + B.y;
+	Result.z = A.z + B.z;
+	Result.w = A.w + B.w;
+
+	return Result;
+}
+
+inline vec4 &
+operator+=(vec4 &A, vec4 B)
+{
+	A = A+B;
+
+	return A;
+}
+
+inline vec4
+operator-(vec4 A)
+{
+	vec4 Result;
+	Result.x = -A.x;
+	Result.y = -A.y;
+	Result.z = -A.z;
+	Result.w = -A.w;
+
+	return Result;
+}
+
+inline vec4
+operator-(vec4 A, vec4 B)
+{
+	vec4 Result;
+	Result.x = A.x - B.x;
+	Result.y = A.y - B.y;
+	Result.z = A.z - B.z;
+	Result.w = A.w - B.w;
+
+	return Result;
+}
+
+inline vec4
+operator*(real32 A, vec4 B)
+{
+    vec4 Result;
+    Result.x = A*B.x;
+    Result.y = A*B.y;
+	Result.z = A*B.z;
+	Result.w = A*B.w;
+
+    return Result;
+}
+
+inline vec4
+operator*(vec4 B, real32 A)
+{
+    vec4 Result;
+	Result = A*B;
+	
+    return Result;
+}
+
+inline vec4 &
+operator*=(vec4 &B, real32 A)
+{
+	B = A*B;
+
+	return B;
+}
+
+inline vec4
+Vec4i(int32 X, int32 Y, int32 Z, int32 W)
+{
+	vec4 Result = {(real32)X, (real32)Y, (real32)Z, (real32)W};
+
+	return Result;
+}
+
+inline vec4
+Vec4i(uint32 X, uint32 Y, uint32 Z, uint32 W)
+{
+	vec4 Result = {(real32)X, (real32)Y, (real32)Z, (real32)W};
+
+	return Result;
+}
+
+inline vec4
+Hadamard(vec4 A, vec4 B)
+{
+	vec4 Result = {A.x*B.x, A.y*B.y, A.z*B.z, A.w*B.w};
+
+	return Result;
+}
+
+inline real32
+Inner(vec4 A, vec4 B)
+{
+	real32 Result = A.x*B.x + A.y*B.y + A.z*B.z + A.w*B.w;
+
+	return Result;
+}
+
+inline real32
+LengthSq(vec4 A)
+{
+	real32 Result = Inner(A, A);
+	
+	return Result;
+}
+
+inline real32
+Length(vec4 A)
+{
+	real32 Result = SquareRoot(LengthSq(A));
+
+	return Result;
+}
+
+inline vec4
+Clamp01(vec4 Value)
+{
+	vec4 Result;
+	Result.x = Clamp01(Value.x);
+	Result.y = Clamp01(Value.y);
+	Result.z = Clamp01(Value.z);
+	Result.w = Clamp01(Value.w);
+
+	return Result;
+}
+
+inline vec4
+Lerp(real32 t, vec4 A, vec4 B)
+{
+	vec4 Result = (1.0f - t)*A + t*B;
 
 	return Result;
 }

@@ -57,6 +57,7 @@ struct render_entry_coordinate_system
 	vec2 XAxis;
 	vec2 YAxis;
 	vec4 Color;
+	loaded_bitmap *Texture;
 
 	vec2 Points[16];
 };
