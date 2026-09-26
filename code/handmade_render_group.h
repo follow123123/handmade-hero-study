@@ -29,13 +29,11 @@ struct render_entity_basis
 
 struct render_entry_clear
 {
-	render_group_entry_header Header;
 	vec4 Color;
 };
 
 struct render_entry_bitmap
 {
-	render_group_entry_header Header;
 	render_entity_basis EntityBasis;
 	loaded_bitmap *Bitmap;
 	real32 R, G, B, A;
@@ -44,7 +42,6 @@ struct render_entry_bitmap
 
 struct render_entry_rectangle
 {
-	render_group_entry_header Header;
 	render_entity_basis EntityBasis;
 	real32 R, G, B, A;
 	vec2 Dim;
@@ -52,7 +49,6 @@ struct render_entry_rectangle
 
 struct render_entry_coordinate_system
 {
-	render_group_entry_header Header;
 	vec2 Origin;
 	vec2 XAxis;
 	vec2 YAxis;
