@@ -522,6 +522,38 @@ MakeEmptyBitmap(memory_arena *Arena, int32 Width, int32 Height, bool32 ClearToZe
 	return Result;
 }
 
+internal void
+MakeSphereMormalMap(loaded_bitmap *Bitmap, real32 Roughness)
+{
+	real32 InvWidth = 1.0f / Bitmap->Width;
+	real32 InvHeight = 1.0f / Bitmap->Height;
+
+	uint8 *Row = (uint8 *)Bitmap->Memory;
+	for (int32 Y = 0; Y < Bitmap->Height; ++Y)
+	{
+		uint32 *Pixel = (uint32 *)Row;
+		for (int32 X = 0; X < Bitmap->Width; ++X)
+		{
+			vec2 BitmapUV = {InvWidth*(real32)X, InvHeight*(real32)Y};
+
+			vec3 Normal = {2.0f*BitmapUV.x - 1.0f, 2.0f*BitmapUV.y - 1.0f, 0.0f};
+			Normal.z = SquareRoot(1.0f - Minimum(1.0f, SquareRoot(Normal.x) + SquareRoot(Normal.y)));
+
+			vec4 Color = {255.0f*(0.5f*(Normal.x + 1.0f)),
+				          255.0f*(0.5f*(Normal.x + 1.0f)),
+				          127.0f*Normal.z,
+				          255.0f*Roughness};
+
+			*Pixel = (((uint32)(Color.a + 0.5f) << 24) |
+                      ((uint32)(Color.r + 0.5f) << 16) |
+                      ((uint32)(Color.g + 0.5f) << 8) |
+                      ((uint32)(Color.b + 0.5f) << 0));
+		}
+
+		Row += Bitmap->Pitch;
+	}
+}
+
 extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {
     Assert((&Input->Controllers[0].Terminator - &Input->Controllers[0].Buttons[0]) 
@@ -906,7 +938,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 	DrawBuffer->Pitch = Buffer->Pitch;
 	DrawBuffer->Memory = Buffer->Memory;
 
-	Clear(RenderGroup, Vec4(1.0f, 0.0f, 1.0f, 0.0f));	
+	Clear(RenderGroup, Vec4(0.5f, 0.5f, 0.5f, 0.0f));	
 
 	vec2 ScreenCenter = {0.5f*(real32)DrawBuffer->Width, 0.5f*(real32)DrawBuffer->Height};
    	
@@ -971,7 +1003,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 						FillGroundChunk(TranState, GameState, FurthestBuffer, &ChunkCenterP);
 					}
 
-					//PushRectOutline(RenderGroup, RelP.xy, 0.0f, World->ChunkDimInMeters.xy, Vec4(1.0f, 1.0f, 0.0f, 1.0f));
+					PushRectOutline(RenderGroup, RelP.xy, 0.0f, World->ChunkDimInMeters.xy, Vec4(1.0f, 1.0f, 0.0f, 1.0f));
 				}
 			}
 		}
@@ -1131,7 +1163,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
 		    case EntityType_Space:
 		    {
-#if 0
+#if 1
 				for (uint32 VolumeIndex = 0; VolumeIndex < Entity->Collision->VolumeCount; ++VolumeIndex)
 				{
 					sim_entity_collision_volume *Volume = Entity->Collision->Volumes + VolumeIndex;
@@ -1167,22 +1199,19 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 	vec2 XAxis = {100.0f, 0};
 	vec2 YAxis = {0, 100.0f};
 #endif
+	uint32 PIndex = 0;
 	real32 CAngle = 5.0f*Angle;
+#if 0
 	vec4 Color = Vec4(0.5f+0.5f*Sin(CAngle), 0.5f+0.5f*Sin(2.9f*CAngle), 0.5f+0.5f*Cos(9.9f*CAngle),
 					  0.5f+0.5f*Sin(10.0f*CAngle));
-	
+#else
+	vec4 Color = Vec4(1, 1, 1, 1);
+#endif
 	render_entry_coordinate_system *C = CoordinateSystem(RenderGroup, Origin - 0.5f*XAxis - 0.5f*YAxis, XAxis, YAxis,
 														 Color,
-														 &GameState->Tree);
-	uint32 PIndex = 0;
-	for (real32 Y = 0.0f; Y < 1.0f; Y += 0.25f)
-	{
-		for (real32 X = 0.0f; X < 1.0f; X += 0.25f)
-		{
-			C->Points[PIndex++] = Vec2(X, Y);
-		}
-	}
-	
+														 &GameState->Tree, 0,
+														 0, 0, 0);
+	 	
 	RenderGroupToOutput(RenderGroup, DrawBuffer);
 	
 	EndSim(SimRegion, GameState);

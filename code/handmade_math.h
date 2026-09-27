@@ -37,7 +37,16 @@ union vec4
 {
 	struct
 	{
-		real32 x, y, z, w;
+		union
+		{
+			vec3 xyz;
+			struct
+			{
+				real32 x, y, z;
+			};
+		};
+			
+		real32 w;
 	};
 	struct
 	{

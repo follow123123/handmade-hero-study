@@ -1,6 +1,13 @@
 #if !defined(HANDMADE_RENDER_GROUP_H)
 #define HANDMADE_RENDER_GROUP_H
 
+struct environment_map
+{
+	uint32 WidthPow2;
+	uint32 HeightPow2;
+	loaded_bitmap *LOD[4];
+};
+
 struct render_basis
 {
 	vec3 P;
@@ -54,8 +61,11 @@ struct render_entry_coordinate_system
 	vec2 YAxis;
 	vec4 Color;
 	loaded_bitmap *Texture;
+	loaded_bitmap *NormalMap;
 
-	vec2 Points[16];
+	environment_map *Top;
+	environment_map *Middle;
+	environment_map *Bottom;	
 };
 
 struct render_group
