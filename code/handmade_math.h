@@ -455,6 +455,14 @@ Lerp(real32 t, vec3 A, vec3 B)
 	return Result;
 }
 
+inline vec3
+Normalize(vec3 A)
+{
+	vec3 Result = A * (1.0f / Length(A));
+
+	return Result;
+}
+
 // NOTE vec4
 
 inline vec4

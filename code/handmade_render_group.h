@@ -3,8 +3,6 @@
 
 struct environment_map
 {
-	uint32 WidthPow2;
-	uint32 HeightPow2;
 	loaded_bitmap *LOD[4];
 };
 
