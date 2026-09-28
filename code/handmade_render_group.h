@@ -1,9 +1,17 @@
 #if !defined(HANDMADE_RENDER_GROUP_H)
 #define HANDMADE_RENDER_GROUP_H
 
+struct loaded_bitmap
+{
+	int32 Width;
+	int32 Height;
+	int32 Pitch;
+	void *Memory;
+};
+
 struct environment_map
 {
-	loaded_bitmap *LOD[4];
+	loaded_bitmap LOD[4];
 };
 
 struct render_basis
@@ -17,6 +25,7 @@ enum render_group_entry_type
 	RenderGroupEntryType_render_entry_bitmap,
 	RenderGroupEntryType_render_entry_rectangle,
 	RenderGroupEntryType_render_entry_coordinate_system,
+	RenderGroupEntryType_render_entry_saturation,
 };
 
 struct render_group_entry_header
@@ -37,18 +46,23 @@ struct render_entry_clear
 	vec4 Color;
 };
 
+struct render_entry_saturation
+{
+	real32 Level;
+};
+
 struct render_entry_bitmap
 {
 	render_entity_basis EntityBasis;
 	loaded_bitmap *Bitmap;
-	real32 R, G, B, A;
+	vec4 Color;
 	vec2 Dim;
 };
 
 struct render_entry_rectangle
 {
 	render_entity_basis EntityBasis;
-	real32 R, G, B, A;
+	vec4 Color;
 	vec2 Dim;
 };
 
