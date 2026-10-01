@@ -563,6 +563,47 @@ MakeSphereNormalMap(loaded_bitmap *Bitmap, real32 Roughness, real32 Cx=1.0f, rea
 }
 
 internal void
+MakeSphereDiffuseMap(loaded_bitmap *Bitmap, real32 Cx=1.0f, real32 Cy=1.0f)
+{
+	real32 InvWidth = 1.0f / (Bitmap->Width - 1);
+	real32 InvHeight = 1.0f / (Bitmap->Height - 1);
+
+	uint8 *Row = (uint8 *)Bitmap->Memory;
+	for (int32 Y = 0; Y < Bitmap->Height; ++Y)
+	{
+		uint32 *Pixel = (uint32 *)Row;
+		for (int32 X = 0; X < Bitmap->Width; ++X)
+		{
+			vec2 BitmapUV = {InvWidth*(real32)X, InvHeight*(real32)Y};
+
+			real32 Nx = Cx*(2.0f*BitmapUV.x - 1.0f);
+			real32 Ny = Cy*(2.0f*BitmapUV.y - 1.0f);
+
+			real32 RootTerm = 1 - Nx*Nx - Ny*Ny;
+			real32 Alpha = 0.0f;			
+			if (RootTerm >= 0.0f)
+			{
+				Alpha = 1.0f;
+			}		   			
+
+			vec3 BaseColor = {0, 0, 0};
+			Alpha *= 255.0f;
+			vec4 Color = {Alpha*BaseColor.x,
+				          Alpha*BaseColor.y,
+				          Alpha*BaseColor.z,
+				          Alpha};
+
+			*Pixel++ = (((uint32)(Color.a + 0.5f) << 24) |
+						((uint32)(Color.r + 0.5f) << 16) |
+						((uint32)(Color.g + 0.5f) << 8) |
+						((uint32)(Color.b + 0.5f) << 0));
+		}
+
+		Row += Bitmap->Pitch;
+	}
+}
+
+internal void
 MakePyramidNormalMap(loaded_bitmap *Bitmap, real32 Roughness)
 {
 	real32 InvWidth = 1.0f / (Bitmap->Width - 1);
@@ -910,6 +951,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		DrawRectangle(&GameState->TestDiffuse, Vec2(0, 0), Vec2i(GameState->TestDiffuse.Width, GameState->TestDiffuse.Height), Vec4(0.5f, 0.5f, 0.5f, 1.0f));
 		GameState->TestNormal = MakeEmptyBitmap(&TranState->TranArena, GameState->TestDiffuse.Width, GameState->TestDiffuse.Height, false);
 		MakeSphereNormalMap(&GameState->TestNormal, 0.0f, 1.0f, 1.0f);
+		MakeSphereDiffuseMap(&GameState->TestDiffuse);
 		//MakePyramidNormalMap(&GameState->TestNormal, 0.0f);
 		
 		TranState->EnvMapWidth = 512;
@@ -1272,9 +1314,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 	}
 
 	GameState->Time += Input->dtForFrame;	
-	real32 Angle = 0.1f*GameState->Time;
-    vec2 Disp = {100.0f*Cos(5.0f*Angle),
-		         100.0f*Sin(3.0f*Angle)};
 
 	vec3 MapColor[] = {
 		{1.0f, 0.0f, 0.0f},
@@ -1303,6 +1342,17 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 			RowCheckerOn = !RowCheckerOn;
 		}
 	}
+	TranState->EnvMaps[0].Pz = -1.5f;
+	TranState->EnvMaps[1].Pz = 0.0f;
+	TranState->EnvMaps[2].Pz = 1.5f;
+
+	real32 Angle = 0.1f*GameState->Time;
+#if 1
+    vec2 Disp = {100.0f*Cos(5.0f*Angle),
+		         100.0f*Sin(3.0f*Angle)};
+#else
+	vec2 Disp = {};
+#endif
 	
 	vec2 Origin = ScreenCenter;
 #if 1
