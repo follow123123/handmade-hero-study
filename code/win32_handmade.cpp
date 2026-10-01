@@ -108,7 +108,7 @@ Win32BuildEXEFilename(win32_state *State, char *Filename,
 			   DestCount, Dest);
 }
 
-DEUBG_PLATFORM_FREE_FILE_MEMORY(DEBUGPlatformFreeFileMemory)
+DEBUG_PLATFORM_FREE_FILE_MEMORY(DEBUGPlatformFreeFileMemory)
 {
     if (Memory)
     {

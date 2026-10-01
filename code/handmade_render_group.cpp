@@ -1,5 +1,5 @@
 //
-//i
+//
 inline vec4
 Unpack4x8(uint32 Color)
 {
@@ -19,7 +19,7 @@ SRGB255ToLinear1(vec4 Color)
 	vec4 Result = {Square(Inv255*Color.r),
 		           Square(Inv255*Color.g),
 		           Square(Inv255*Color.b),
-		           Square(Inv255*Color.a)};
+		           Inv255*Color.a};
 
 	return Result;
 }
@@ -32,7 +32,7 @@ Linear1ToSRGB255(vec4 Color)
 	vec4 Result = {One255*SquareRoot(Color.r),
  		           One255*SquareRoot(Color.g),
 		           One255*SquareRoot(Color.b),
-		           One255*SquareRoot(Color.a)};
+		           255.0f*Color.a};
 
 	return Result;
 }
@@ -141,15 +141,24 @@ DrawRectangle(loaded_bitmap *Buffer, vec2 vMin, vec2 vMax, vec4 Color)
 }
 
 inline vec3
-SampleEnvironmentMap(vec2 ScreenSpaceUV, vec3 Normal, real32 Roughness, environment_map *Map)
+SampleEnvironmentMap(vec2 ScreenSpaceUV, vec3 SampleDirection, real32 Roughness, environment_map *Map,
+					 real32 DistanceFromMapInZ)
 {
 	uint32 LODIndex = (uint32)(Roughness*(real32)(ArrayCount(Map->LOD) - 1) + 0.5f);
 	Assert(LODIndex < ArrayCount(Map->LOD));
 
 	loaded_bitmap *LOD = &Map->LOD[LODIndex];
 
-	real32 tX = LOD->Width/2 + Normal.x*(LOD->Width/2);
-	real32 tY = LOD->Height/2 + Normal.y*(LOD->Height/2);
+	real32 UVsPerMeter = 0.01f;
+	real32 C = (UVsPerMeter*DistanceFromMapInZ) / SampleDirection.y;
+	vec2 Offset = C * Vec2(SampleDirection.x, SampleDirection.z);
+
+	vec2 UV = ScreenSpaceUV + Offset;
+	UV.x = Clamp01(UV.x);
+	UV.y = Clamp01(UV.y);
+	
+	real32 tX = UV.x*(real32)(LOD->Width - 2);
+	real32 tY = UV.y*(real32)(LOD->Height - 2);
 
 	int32 X = (int32)tX;
 	int32 Y = (int32)tY;
@@ -159,6 +168,9 @@ SampleEnvironmentMap(vec2 ScreenSpaceUV, vec3 Normal, real32 Roughness, environm
 
 	Assert((X >= 0) && (X < LOD->Width));
 	Assert((Y >= 0) && (Y < LOD->Height));
+
+	uint8 *TexelPtr = (uint8 *)LOD->Memory + Y*LOD->Pitch + X*sizeof(uint32);
+	*(uint32 *)TexelPtr = 0xFFFFFFFF;
 
 	bilinear_sample LODSample = BilinearSample(LOD, X, Y);
 	vec3 Result = SRGBBilinearBlend(LODSample, fX, fY).xyz;;    
@@ -175,6 +187,14 @@ DrawRectangleSlowly(loaded_bitmap *Buffer, vec2 Origin, vec2 XAxis, vec2 YAxis, 
 {
 	Color.rgb *= Color.a;
 
+	real32 XAxisLength = Length(XAxis);
+	real32 YAxisLength = Length(YAxis);
+
+	vec2 NXAxis = (YAxisLength / XAxisLength) * XAxis;
+	vec2 NYAxis = (XAxisLength / YAxisLength) * YAxis;
+
+	real32 NZScale = 0.5f*(XAxisLength + YAxisLength);
+	
 	real32 InvXAxisLengthSq = 1.0f / LengthSq(XAxis);
 	real32 InvYAxisLengthSq = 1.0f / LengthSq(YAxis);
 
@@ -272,15 +292,25 @@ DrawRectangleSlowly(loaded_bitmap *Buffer, vec2 Origin, vec2 XAxis, vec2 YAxis, 
 					vec4 Normal = Lerp(fY, Lerp(fX, NormalA, NormalB), Lerp(fX, NormalC, NormalD));
 
 					Normal = UnscaleAndBiasNormal(Normal);
+
+					Normal.xy = Normal.x*NXAxis + Normal.y*NYAxis;
+					Normal.z *= NZScale;					
 					Normal.xyz = Normalize(Normal.xyz);
 					
+					vec3 BounceDirection = 2.0f*Normal.z*Normal.xyz;
+					BounceDirection.z += -1.0f;					
+
+					BounceDirection.z = -BounceDirection.z;
+					
 					environment_map *FarMap = 0;
-					real32 tEnvMap = Normal.y;
+					real32 DistanceFromMapInZ = 2.0f;
+					real32 tEnvMap = BounceDirection.y;
 					real32 tFarMap = 0.0f;
 					if (tEnvMap < -0.5f)
 					{
 						tFarMap = -1.0f - 2.0f*tEnvMap;
 						FarMap = Bottom;
+						DistanceFromMapInZ = -DistanceFromMapInZ;
 					}
 					else if (tEnvMap > 0.5f)
 					{
@@ -288,10 +318,11 @@ DrawRectangleSlowly(loaded_bitmap *Buffer, vec2 Origin, vec2 XAxis, vec2 YAxis, 
 						FarMap = Top;
 					}
 
-					vec3 LightColor = {0, 0, 0}; //SampleEnvironmentMap(ScreenSpaceUV, Normal.xyz, Normal.w, Middle);
+					vec3 LightColor = {0, 0, 0}; 
 					if (FarMap)
 					{
-						vec3 FarMapColor = SampleEnvironmentMap(ScreenSpaceUV, Normal.xyz, Normal.w, FarMap);
+						vec3 FarMapColor = SampleEnvironmentMap(ScreenSpaceUV, BounceDirection, Normal.w, FarMap,
+																DistanceFromMapInZ);
 						LightColor = Lerp(tFarMap, LightColor, FarMapColor);
 					}
 
@@ -329,35 +360,85 @@ DrawRectangleSlowly(loaded_bitmap *Buffer, vec2 Origin, vec2 XAxis, vec2 YAxis, 
 	}
 }
 
-
 internal void
-ChangeSaturation(loaded_bitmap *Buffer, real32 Level)
+DrawMatte(loaded_bitmap *Buffer, loaded_bitmap *Bitmap,
+          real32 RealX, real32 RealY, real32 CAlpha = 1.0f)
 {
-	uint8 *DestRow = (uint8 *)Buffer->Memory;
-	for (int32 Y = 0; Y < Buffer->Height; ++Y)
-	{
-		uint32 *Dest = (uint32 *)DestRow;
-		for (int32 X = 0; X < Buffer->Width; ++X)
-		{
-			vec4 D = Unpack4x8(*Dest);
+    int32 MinX = RoundReal32ToInt32(RealX);
+    int32 MinY = RoundReal32ToInt32(RealY);
+    int32 MaxX = MinX + Bitmap->Width;
+    int32 MaxY = MinY + Bitmap->Height;
 
-			D = SRGB255ToLinear1(D);
+    int32 SourceOffsetX = 0;
+    if(MinX < 0)
+    {
+        SourceOffsetX = -MinX;
+        MinX = 0;
+    }
 
-			real32 Avg = (1.0f / 3.0f) * (D.r + D.g + D.b);
-			vec3 Delta = Vec3(D.r - Avg, D.g - Avg, D.b - Avg);
+    int32 SourceOffsetY = 0;
+    if(MinY < 0)
+    {
+        SourceOffsetY = -MinY;
+        MinY = 0;
+    }
 
-			vec4 Result = ToVec4(Vec3(Avg, Avg, Avg) + Delta*Level, D.a);
+    if(MaxX > Buffer->Width)
+    {
+        MaxX = Buffer->Width;
+    }
 
-			Result = Linear1ToSRGB255(Result);
+    if(MaxY > Buffer->Height)
+    {
+        MaxY = Buffer->Height;
+    }
 
-			*Dest++ = (((uint8)(Result.a + 0.5f) << 24) |
-					   ((uint8)(Result.r + 0.5f) << 16) |
-					   ((uint8)(Result.g + 0.5f) << 8) |
-					   ((uint8)(Result.b + 0.5f) << 0));
-		}
+    uint8 *SourceRow = (uint8 *)Bitmap->Memory + SourceOffsetY*Bitmap->Pitch + BITMAP_BYTES_PER_PIXEL*SourceOffsetX;
+    uint8 *DestRow = ((uint8 *)Buffer->Memory +
+                      MinX*BITMAP_BYTES_PER_PIXEL +
+                      MinY*Buffer->Pitch);
+    for(int Y = MinY;
+        Y < MaxY;
+        ++Y)
+    {
+        uint32 *Dest = (uint32 *)DestRow;
+        uint32 *Source = (uint32 *)SourceRow;
+        for(int X = MinX;
+            X < MaxX;
+            ++X)
+        {
+            real32 SA = (real32)((*Source >> 24) & 0xFF);
+            real32 RSA = (SA / 255.0f) * CAlpha;            
+            real32 SR = CAlpha*(real32)((*Source >> 16) & 0xFF);
+            real32 SG = CAlpha*(real32)((*Source >> 8) & 0xFF);
+            real32 SB = CAlpha*(real32)((*Source >> 0) & 0xFF);
 
-		DestRow += Buffer->Pitch;
-	}
+            real32 DA = (real32)((*Dest >> 24) & 0xFF);
+            real32 DR = (real32)((*Dest >> 16) & 0xFF);
+            real32 DG = (real32)((*Dest >> 8) & 0xFF);
+            real32 DB = (real32)((*Dest >> 0) & 0xFF);
+            real32 RDA = (DA / 255.0f);
+            
+            real32 InvRSA = (1.0f-RSA);
+            // TODO(casey): Check this for math errors
+//            real32 A = 255.0f*(RSA + RDA - RSA*RDA);
+            real32 A = InvRSA*DA;
+            real32 R = InvRSA*DR;
+            real32 G = InvRSA*DG;
+            real32 B = InvRSA*DB;
+
+            *Dest = (((uint32)(A + 0.5f) << 24) |
+                     ((uint32)(R + 0.5f) << 16) |
+                     ((uint32)(G + 0.5f) << 8) |
+                     ((uint32)(B + 0.5f) << 0));
+            
+            ++Dest;
+            ++Source;
+        }
+
+        DestRow += Buffer->Pitch;
+        SourceRow += Bitmap->Pitch;
+    }
 }
 
 internal void
@@ -448,6 +529,36 @@ DrawBitmap(loaded_bitmap *Buffer, loaded_bitmap *Bitmap, real32 RealX, real32 Re
         DestRow += Buffer->Pitch;
         SourceRow += Bitmap->Pitch;
     }
+}
+
+internal void
+ChangeSaturation(loaded_bitmap *Buffer, real32 Level)
+{
+	uint8 *DestRow = (uint8 *)Buffer->Memory;
+	for (int32 Y = 0; Y < Buffer->Height; ++Y)
+	{
+		uint32 *Dest = (uint32 *)DestRow;
+		for (int32 X = 0; X < Buffer->Width; ++X)
+		{
+			vec4 D = Unpack4x8(*Dest);
+
+			D = SRGB255ToLinear1(D);
+
+			real32 Avg = (1.0f / 3.0f) * (D.r + D.g + D.b);
+			vec3 Delta = Vec3(D.r - Avg, D.g - Avg, D.b - Avg);
+
+			vec4 Result = ToVec4(Vec3(Avg, Avg, Avg) + Delta*Level, D.a);
+
+			Result = Linear1ToSRGB255(Result);
+
+			*Dest++ = (((uint8)(Result.a + 0.5f) << 24) |
+					   ((uint8)(Result.r + 0.5f) << 16) |
+					   ((uint8)(Result.g + 0.5f) << 8) |
+					   ((uint8)(Result.b + 0.5f) << 0));
+		}
+
+		DestRow += Buffer->Pitch;
+	}
 }
 
 internal render_group *
@@ -585,7 +696,7 @@ _PushRenderElement(render_group *Group, uint32 Size, render_group_entry_type Typ
 {
 	void *Result = 0;
 
-	Size += sizeof(render_group_entry_type);
+	Size += sizeof(render_group_entry_header);
 	
 	if (Group->PushBufferSize + Size < Group->MaxPushBufferSize)
 	{
@@ -662,6 +773,16 @@ Clear(render_group *RenderGroup, vec4 Color)
 	if (Entry)
 	{
 		Entry->Color = Color;
+	}
+}
+
+inline void
+Saturation(render_group *RenderGroup, real32 Level)
+{
+	render_entry_saturation *Entry = PushRenderElement(RenderGroup, render_entry_saturation);
+	if (Entry)
+	{
+		Entry->Level = Level;
 	}
 }
 

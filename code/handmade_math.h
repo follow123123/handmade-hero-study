@@ -50,6 +50,24 @@ union vec4
 	};
 	struct
 	{
+		vec2 xy;
+		real32 Ignored0;
+		real32 Ignored1;
+	};
+	struct
+	{
+		real32 Ignored2;
+		vec2 yz;
+		real32 Ignored3;
+	};
+	struct
+	{
+		real32 Ignored4;
+		real32 Ignored5;
+		vec2 zw;
+	};
+	struct
+	{
 		union
 		{
 			vec3 rgb;
@@ -835,5 +853,16 @@ ToRectangleXY(rectangle3 Rect)
 
 	return Result;
 }
+
+inline rectangle3
+Offset(rectangle3 A, vec3 Offset)
+{
+	rectangle3 Result = A;
+	Result.Min += Offset;
+	Result.Max += Offset;
+
+	return Result;
+}
+	
 
 #endif /* HANDMADE_MATH_H */

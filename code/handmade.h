@@ -31,7 +31,7 @@ InitializeArena(memory_arena *Arena, memory_index Size, void *Base)
 
 #define PushStruct(Arena, type) (type *)_PushSize(Arena, sizeof(type))
 #define PushArray(Arena, Count, type) (type *)_PushSize(Arena, Count*sizeof(type))
-void *
+inline void *
 _PushSize(memory_arena *Arena, memory_index Size)
 {
 	Assert((Arena->Used + Size) <= Arena->Size);

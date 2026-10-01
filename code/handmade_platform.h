@@ -91,8 +91,8 @@ typedef struct debug_read_file_result
     void *Contents;
 } debug_read_file_result;
 
-#define DEUBG_PLATFORM_FREE_FILE_MEMORY(name) void name(thread_context *Thread, void *Memory)
-typedef DEUBG_PLATFORM_FREE_FILE_MEMORY(debug_platform_free_file_memory);
+#define DEBUG_PLATFORM_FREE_FILE_MEMORY(name) void name(thread_context *Thread, void *Memory)
+typedef DEBUG_PLATFORM_FREE_FILE_MEMORY(debug_platform_free_file_memory);
 
 #define DEBUG_PLATFORM_READ_ENTIRE_FILE(name) debug_read_file_result name(thread_context *Thread, char *Filename)
 typedef DEBUG_PLATFORM_READ_ENTIRE_FILE(debug_platform_read_entire_file);
@@ -163,7 +163,7 @@ typedef struct game_input
     game_button_state MouseButtons[5];
     int32 MouseX, MouseY, MouseZ;
 
-	real32 ExecutableReloaded;
+	bool32 ExecutableReloaded;
     real32 dtForFrame;
     
     game_controller_input Controllers[5];

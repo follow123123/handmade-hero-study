@@ -522,7 +522,7 @@ MakeEmptyBitmap(memory_arena *Arena, int32 Width, int32 Height, bool32 ClearToZe
 }
 
 internal void
-MakeSphereNormalMap(loaded_bitmap *Bitmap, real32 Roughness)
+MakeSphereNormalMap(loaded_bitmap *Bitmap, real32 Roughness, real32 Cx=1.0f, real32 Cy=1.0f)
 {
 	real32 InvWidth = 1.0f / (Bitmap->Width - 1);
 	real32 InvHeight = 1.0f / (Bitmap->Height - 1);
@@ -535,17 +535,72 @@ MakeSphereNormalMap(loaded_bitmap *Bitmap, real32 Roughness)
 		{
 			vec2 BitmapUV = {InvWidth*(real32)X, InvHeight*(real32)Y};
 
-			real32 Nx = 2.0f*BitmapUV.x - 1.0f;
-			real32 Ny = 2.0f*BitmapUV.y - 1.0f;
+			real32 Nx = Cx*(2.0f*BitmapUV.x - 1.0f);
+			real32 Ny = Cy*(2.0f*BitmapUV.y - 1.0f);
 			real32 RootTerm = 1 - Nx*Nx - Ny*Ny;
 
-			vec3 Normal = {0, 0, 1};
+			vec3 Normal = {0, 0.707106781188f, 0.707106781188f};
 			real32 Nz = 0.0f;
 			if (RootTerm >= 0.0f)
 			{
 				Nz = SquareRoot(RootTerm);
 				Normal = Vec3(Nx, Ny, Nz);
 			}		   			
+
+			vec4 Color = {255.0f*(0.5f*(Normal.x + 1.0f)),
+				          255.0f*(0.5f*(Normal.y + 1.0f)),
+				          255.0f*(0.5f*(Normal.z + 1.0f)),
+				          255.0f*Roughness};
+
+			*Pixel++ = (((uint32)(Color.a + 0.5f) << 24) |
+						((uint32)(Color.r + 0.5f) << 16) |
+						((uint32)(Color.g + 0.5f) << 8) |
+						((uint32)(Color.b + 0.5f) << 0));
+		}
+
+		Row += Bitmap->Pitch;
+	}
+}
+
+internal void
+MakePyramidNormalMap(loaded_bitmap *Bitmap, real32 Roughness)
+{
+	real32 InvWidth = 1.0f / (Bitmap->Width - 1);
+	real32 InvHeight = 1.0f / (Bitmap->Height - 1);
+
+	uint8 *Row = (uint8 *)Bitmap->Memory;
+	for (int32 Y = 0; Y < Bitmap->Height; ++Y)
+	{
+		uint32 *Pixel = (uint32 *)Row;
+		for (int32 X = 0; X < Bitmap->Width; ++X)
+		{
+			vec2 BitmapUV = {InvWidth*(real32)X, InvHeight*(real32)Y};
+
+			int32 InvX = (Bitmap->Width - 1) - X;
+			real32 Seven = 0.707106781188f;
+			vec3 Normal = {0, 0, Seven};
+			if (X < Y)
+			{
+				if (InvX < Y)
+				{
+					Normal.y = -Seven;
+				}
+				else
+				{
+					Normal.x = -Seven;
+				}
+			}
+			else
+			{
+				if (InvX < Y)
+				{
+					Normal.y = Seven;
+				}
+				else
+				{
+					Normal.x = Seven;
+				}
+			}
 
 			vec4 Color = {255.0f*(0.5f*(Normal.x + 1.0f)),
 				          255.0f*(0.5f*(Normal.y + 1.0f)),
@@ -854,7 +909,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		GameState->TestDiffuse = MakeEmptyBitmap(&TranState->TranArena, 256, 256, false);
 		DrawRectangle(&GameState->TestDiffuse, Vec2(0, 0), Vec2i(GameState->TestDiffuse.Width, GameState->TestDiffuse.Height), Vec4(0.5f, 0.5f, 0.5f, 1.0f));
 		GameState->TestNormal = MakeEmptyBitmap(&TranState->TranArena, GameState->TestDiffuse.Width, GameState->TestDiffuse.Height, false);
-		MakeSphereNormalMap(&GameState->TestNormal, 0.0f);
+		MakeSphereNormalMap(&GameState->TestNormal, 0.0f, 1.0f, 1.0f);
+		//MakePyramidNormalMap(&GameState->TestNormal, 0.0f);
 		
 		TranState->EnvMapWidth = 512;
 		TranState->EnvMapHeight = 256;		
@@ -1216,7 +1272,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 	}
 
 	GameState->Time += Input->dtForFrame;	
-
+	real32 Angle = 0.1f*GameState->Time;
+    vec2 Disp = {100.0f*Cos(5.0f*Angle),
+		         100.0f*Sin(3.0f*Angle)};
 
 	vec3 MapColor[] = {
 		{1.0f, 0.0f, 0.0f},
@@ -1236,9 +1294,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 			bool32 CheckerOn = RowCheckerOn;
 			for (int32 X = 0; X < LOD->Width; X += CheckerWidth)
 			{
-				vec4 Color = CheckerOn ? Vec4(0, 0, 0, 1) : ToVec4(MapColor[MapIndex], 1.0f);
+				vec4 Color = CheckerOn ? ToVec4(MapColor[MapIndex], 1.0f) : Vec4(0, 0, 0, 1);
 				vec2 MinP = Vec2i(X, Y);
-				vec2 MaxP = MinP + Vec2i(LOD->Width, LOD->Height);
+				vec2 MaxP = MinP + Vec2i(CheckerWidth, CheckerHeight);
 				DrawRectangle(LOD, MinP, MaxP, Color);
 				CheckerOn = !CheckerOn;
 			}
@@ -1246,11 +1304,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		}
 	}
 	
-	real32 Angle = 0.1f*GameState->Time;
-    real32 Disp = 100.0f*Cos(5.0f*Angle);
-
 	vec2 Origin = ScreenCenter;
-#if 0
+#if 1
 	vec2 XAxis = 100.0f*Vec2(Cos(Angle), Sin(Angle));
 	vec2 YAxis = Perp(XAxis);
 #else
@@ -1265,7 +1320,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 #else
 	vec4 Color = Vec4(1, 1, 1, 1);
 #endif
-	render_entry_coordinate_system *C = CoordinateSystem(RenderGroup, Origin - 0.5f*XAxis - 0.5f*YAxis, XAxis, YAxis,
+	render_entry_coordinate_system *C = CoordinateSystem(RenderGroup, Disp + Origin - 0.5f*XAxis - 0.5f*YAxis, XAxis, YAxis,
 														 Color,
 														 &GameState->TestDiffuse, &GameState->TestNormal,
 														 TranState->EnvMaps + 2, TranState->EnvMaps + 1, TranState->EnvMaps);
