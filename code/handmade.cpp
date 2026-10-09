@@ -124,8 +124,7 @@ DEBUGLoadBMP(thread_context *Thread, debug_platform_read_entire_file *ReadEntire
 		}
 	}
 
-	Result.Pitch = -Result.Width*BITMAP_BYTES_PER_PIXEL;
-	Result.Memory = (uint8 *)Result.Memory - Result.Pitch*(Result.Height - 1);
+	Result.Pitch = Result.Width*BITMAP_BYTES_PER_PIXEL;
 	
 	return Result;
 }
@@ -658,6 +657,20 @@ MakePyramidNormalMap(loaded_bitmap *Bitmap, real32 Roughness)
 	}
 }
 
+inline vec2
+TopDownAlign(loaded_bitmap *Bitmap, vec2 Align)
+{
+	Align.y = (Bitmap->Height - 1) - Align.y;
+
+	return Align;
+}
+
+internal void
+SetTopDownAlign(hero_bitmaps *Bitmap, vec2 Align)
+{
+	Bitmap->Align = TopDownAlign(&Bitmap->Head, Align);
+}
+
 extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {
     Assert((&Input->Controllers[0].Terminator - &Input->Controllers[0].Buttons[0]) 
@@ -749,25 +762,25 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		Bitmap->Head = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_right_head.bmp");
 		Bitmap->Cape = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_right_cape.bmp");
 		Bitmap->Torso = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_right_torso.bmp");
-        Bitmap->Align = Vec2(72, 182);
+		SetTopDownAlign(Bitmap, Vec2(72, 182));
 		++Bitmap;
 
 		Bitmap->Head = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_back_head.bmp");
 		Bitmap->Cape = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_back_cape.bmp");
 		Bitmap->Torso = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_back_torso.bmp");
-        Bitmap->Align = Vec2(72, 182);
+        SetTopDownAlign(Bitmap, Vec2(72, 182));
 		++Bitmap;
 
 		Bitmap->Head = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_left_head.bmp");
 		Bitmap->Cape = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_left_cape.bmp");
 		Bitmap->Torso = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_left_torso.bmp");
-        Bitmap->Align = Vec2(72, 182);
+        SetTopDownAlign(Bitmap, Vec2(72, 182));
 		++Bitmap;
 
 		Bitmap->Head = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_front_head.bmp");
 		Bitmap->Cape = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_front_cape.bmp");
 		Bitmap->Torso = DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_front_torso.bmp");
-        Bitmap->Align = Vec2(72, 182);
+        SetTopDownAlign(Bitmap, Vec2(72, 182));
 		++Bitmap;
 			
 		random_series Series = RandomSeed(1234);
@@ -784,7 +797,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		bool32 DoorTop = false;
 		bool32 DoorBottom = false;
 		bool32 DoorUp = false;
-		bool32 DoorDown = false;		
+		bool32 DoorDown = false;
 		for (uint32 ScreenIndex = 0; ScreenIndex < 2000; ++ScreenIndex)
 		{
 			// uint32 DoorDirection = RandomChoice(&Series, (DoorUp || DoorDown) ? 2 : 3);
@@ -1065,7 +1078,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 	DrawBuffer->Memory = Buffer->Memory;
 
 	Clear(RenderGroup, Vec4(0.25f, 0.25f, 0.25f, 0.0f));	
-
+	
 	vec2 ScreenCenter = {0.5f*(real32)DrawBuffer->Width, 0.5f*(real32)DrawBuffer->Height};
    	
 	real32 ScreenWidthInMeters = (real32)DrawBuffer->Width*PixelsToMeters;
@@ -1129,7 +1142,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 						FillGroundChunk(TranState, GameState, FurthestBuffer, &ChunkCenterP);
 					}
 
-					PushRectOutline(RenderGroup, RelP.xy, 0.0f, World->ChunkDimInMeters.xy, Vec4(1.0f, 1.0f, 0.0f, 1.0f));
+					//PushRectOutline(RenderGroup, RelP.xy, 0.0f, World->ChunkDimInMeters.xy, Vec4(1.0f, 1.0f, 0.0f, 1.0f));
 				}
 			}
 		}
@@ -1219,8 +1232,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 					MakeEntityNonSpatial(Entity);
 				}
        	 		
+				vec2 Alignment = TopDownAlign(&GameState->Sword, Vec2(29, 10));
 				PushBitmap(RenderGroup, &GameState->Shadow, Vec2(0, 0), 0, HeroBitmaps->Align, ShadowAlpha, 0.0f);
-				PushBitmap(RenderGroup, &GameState->Sword, Vec2(0, 0), 0, Vec2(29, 10));
+				PushBitmap(RenderGroup, &GameState->Sword, Vec2(0, 0), 0, Alignment);
 			} break;
 			
 		    case EntityType_Monster:
@@ -1277,7 +1291,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 	 		
 	 	    case EntityType_Wall:
 			{
-				PushBitmap(RenderGroup, &GameState->Tree, Vec2(0, 0), 0, Vec2(40, 80));
+				vec2 Alignment = TopDownAlign(&GameState->Tree, Vec2(40, 80));
+				PushBitmap(RenderGroup, &GameState->Tree, Vec2(0, 0), 0, Alignment);
 			} break;
 
 		    case EntityType_Stairwell:
@@ -1313,6 +1328,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		Basis->P = GetEntityGroundPoint(Entity);
 	}
 
+#if 0
 	GameState->Time += Input->dtForFrame;	
 
 	vec3 MapColor[] = {
@@ -1391,6 +1407,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
 		MapP += YAxis + Vec2(0.0f, 6.0f);
 	}
+#endif
 	
 	RenderGroupToOutput(RenderGroup, DrawBuffer);
 	

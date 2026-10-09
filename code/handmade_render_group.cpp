@@ -605,13 +605,11 @@ GetRenderEntityBasisP(render_group *RenderGroup, render_entity_basis *EntityBasi
 {
 	vec3 EntityBaseP = EntityBasis->Basis->P;
 	real32 ZFudge = 1.0f + 0.1f*(EntityBaseP.z + EntityBasis->OffsetZ);
+
+	vec2 EntityGroundPoint = ScreenCenter + ZFudge*RenderGroup->MetersToPixels*EntityBaseP.xy;
+	real32 EntityZ = RenderGroup->MetersToPixels*EntityBaseP.z;
      		
-	real32 EntityGroundPointX = ScreenCenter.x + ZFudge*RenderGroup->MetersToPixels*EntityBaseP.x;
-	real32 EntityGroundPointY = ScreenCenter.y - ZFudge*RenderGroup->MetersToPixels*EntityBaseP.y;            
-	real32 EntityZ = -RenderGroup->MetersToPixels*EntityBaseP.z;
-     		
-	vec2 Center = {EntityGroundPointX + EntityBasis->Offset.x,
-		           EntityGroundPointY + EntityBasis->Offset.y + EntityBasis->EntityZC*EntityZ};
+	vec2 Center = EntityGroundPoint + EntityBasis->Offset + Vec2(0, EntityBasis->EntityZC*EntityZ);
 
 	return Center;
 }
@@ -653,10 +651,10 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_bitmap *OutputBuffer)
 		    case RenderGroupEntryType_render_entry_bitmap:
      		{
      			render_entry_bitmap *Entry = (render_entry_bitmap *)Data;
-#if 0
+#if 1
 				vec2 P = GetRenderEntityBasisP(RenderGroup, &Entry->EntityBasis, ScreenCenter);
      
-      			DrawBitmap(OutputBuffer, Entry->Bitmap, P.x, P.y, Entry->A);
+      			DrawBitmap(OutputBuffer, Entry->Bitmap, P.x, P.y, Entry->Color.a);
 #endif
      			BaseAddress += sizeof(*Entry);
      		} break;
@@ -746,7 +744,7 @@ PushPiece(render_group *Group, loaded_bitmap *Bitmap,
 	{
 		Piece->Bitmap = Bitmap;
 		Piece->EntityBasis.Basis = Group->DefaultBasis;
-		Piece->EntityBasis.Offset = Group->MetersToPixels*Vec2(Offset.x, -Offset.y) - Align;
+		Piece->EntityBasis.Offset = Group->MetersToPixels*Vec2(Offset.x, Offset.y) - Align;
 		Piece->EntityBasis.OffsetZ = OffsetZ;
 		Piece->EntityBasis.EntityZC = EntityZC;
 		Piece->Color = Color;
