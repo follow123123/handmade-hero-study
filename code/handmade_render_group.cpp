@@ -667,9 +667,9 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_bitmap *OutputBuffer)
      		{
      			render_entry_rectangle *Entry = (render_entry_rectangle *)Data;
      
-				vec2 P = GetRenderEntityBasisP(RenderGroup, &Entry->EntityBasis, ScreenCenter).P;
+				entity_basis_p_result Basis = GetRenderEntityBasisP(RenderGroup, &Entry->EntityBasis, ScreenCenter);
 				
-     			DrawRectangle(OutputBuffer, P, P + Entry->Dim, Entry->Color);
+     			DrawRectangle(OutputBuffer, Basis.P, Basis.P + Basis.Scale*Entry->Dim, Entry->Color);
 
      			BaseAddress += sizeof(*Entry);			
      		} break;

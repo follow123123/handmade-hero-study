@@ -807,10 +807,17 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		bool32 DoorDown = false;
 		for (uint32 ScreenIndex = 0; ScreenIndex < 2000; ++ScreenIndex)
 		{
-			uint32 DoorDirection = RandomChoice(&Series, (DoorUp || DoorDown) ? 2 : 3);
+			uint32 DoorDirection = RandomChoice(&Series, (DoorUp || DoorDown) ? 2 : 4);
 			//uint32 DoorDirection = RandomChoice(&Series, 2);
 
+			DoorDirection = 3;
+			
 			bool32 CreatedZDoor = false;
+			if (DoorDirection == 3)
+			{
+				CreatedZDoor = true;
+				DoorDown = true;
+			}
 			if (DoorDirection == 2)
 			{
 				CreatedZDoor = true;
@@ -865,47 +872,45 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 						ShouldBeDoor = true;
 					}
 
-					if (ShouldBeDoor)
-					{
-						AddWall(GameState, AbsTileX, AbsTileY, AbsTileZ);
-					}
-					else if (CreatedZDoor)
-					{
-						if ((TileX == 10) && (TileY == 6))
-						{
-							AddStair(GameState, AbsTileX, AbsTileY, DoorDown ? AbsTileZ - 1 : AbsTileZ);
-						}
-					}	
-				}
-			}
+	    	            if (ShouldBeDoor)
+                    {
+                        AddWall(GameState, AbsTileX, AbsTileY, AbsTileZ);
+                    }
+                    else if (CreatedZDoor)
+                    {
+                        if ((AbsTileZ % 2) && (TileX == 10) && (TileY == 5) ||
+							(!(AbsTileZ % 2)) && (TileX == 4) && (TileY == 5))
+                        {
+                            AddStair(GameState, AbsTileX, AbsTileY, DoorDown ? AbsTileZ - 1 : AbsTileZ);
+                        }
+                    }   
+                }
+            }
 
-			DoorLeft = DoorRight;
-			DoorBottom = DoorTop;
+            DoorLeft = DoorRight;
+            DoorBottom = DoorTop;
 
-			if (CreatedZDoor)
-			{
-				DoorDown = !DoorDown;
-				DoorUp = !DoorUp;
-			}
-			else
-			{
-				DoorUp = false;
-				DoorDown = false;
-			}
-			
-			DoorRight = false;
-			DoorTop = false;
+            if (CreatedZDoor)
+            {
+                DoorDown = !DoorDown;
+                DoorUp = !DoorUp;
+            }
+            else
+            {
+                DoorUp = false;
+                DoorDown = false;
+            }
+            
+            DoorRight = false;
+            DoorTop = false;
 
-			if (DoorDirection == 2)
+            if (DoorDirection == 3)
 			{
-				if (AbsTileZ == ScreenBaseZ)
-				{
-					AbsTileZ = ScreenBaseZ + 1;
-				}
-				else
-				{
-					AbsTileZ = ScreenBaseZ;
-				}
+				AbsTileZ -= 1;
+			}
+			else if (DoorDirection == 2)
+			{
+				AbsTileZ += 1;
 			}
 			else if (DoorDirection == 1)
 			{
@@ -1084,7 +1089,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 			{
 				ZoomRate = -1.0f;
 			}
-			GameState->ZOffset += ZoomRate*Input->dtForFrame;
 #endif
 		}
 	}	
@@ -1109,6 +1113,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 	rectangle3 CameraBoundsInMeters = RectCenterDim(Vec3(0, 0, 0),
 											Vec3(ScreenWidthInMeters, ScreenHeightInMeters, 0));
 
+#if 0
 	for (uint32 GroundBufferIndex = 0; GroundBufferIndex < TranState->GroundBufferCount; ++GroundBufferIndex)
 	{
 		ground_buffer *GroundBuffer = TranState->GroundBuffers + GroundBufferIndex;
@@ -1124,8 +1129,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 			PushBitmap(RenderGroup, Bitmap, Vec3(0, 0, 0));
 		}
 	}
-
-#if 1
+#endif
 	{
 		world_position MinChunkP = MapIntoChunkSpace(World, GameState->CameraP, GetMinCorner(CameraBoundsInMeters));
 		world_position MaxChunkP = MapIntoChunkSpace(World, GameState->CameraP, GetMaxCorner(CameraBoundsInMeters));
@@ -1176,14 +1180,16 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 			}
 		}
 	}
-#endif
 	
 	vec3 SimBoundsExpansion = {15.0f, 15.0f,  15.0f};
 	rectangle3 SimBounds = AddRadiusTo(CameraBoundsInMeters, SimBoundsExpansion);
 	temporary_memory SimMemory = BeginTemporaryMemory(&TranState->TranArena);
+	world_position SimCenterP = GameState->CameraP;
 	sim_region *SimRegion = BeginSim(&TranState->TranArena, GameState, World,
-									 GameState->CameraP, SimBounds, Input->dtForFrame);     	
+									 SimCenterP, SimBounds, Input->dtForFrame);     	
 		
+	vec3 CameraP = Subtract(GameState->World, &GameState->CameraP, &SimCenterP);
+
 	sim_entity *Entity = SimRegion->Entities;
 	for (uint32 EntityIndex = 0; EntityIndex < SimRegion->EntityCount;
 		 ++EntityIndex, ++Entity)
@@ -1199,7 +1205,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		if (ShadowAlpha < 0)
 		{
 			ShadowAlpha = 0.0f;
-		}
+		}		
 
 		move_spec MoveSpec = DefaultMoveSpec();
 		vec3 ddP = {};
@@ -1207,6 +1213,21 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		render_basis *Basis = PushStruct(&TranState->TranArena, render_basis);
 		RenderGroup->DefaultBasis = Basis;
 
+		vec3 CameraRelativeGroundP = GetEntityGroundPoint(Entity) - CameraP;
+		real32 FadeTopEndZ = 0.75f*GameState->TypicalFloorHeight;
+		real32 FadeTopStartZ = 0.5f*GameState->TypicalFloorHeight;
+		real32 FadeBottomStartZ = -2.0f*GameState->TypicalFloorHeight;
+		real32 FadeBottomEndZ = -2.25f*GameState->TypicalFloorHeight;
+		RenderGroup->GlobalAlpha = 1.0f;
+		if (CameraRelativeGroundP.z > FadeTopStartZ)
+		{
+			RenderGroup->GlobalAlpha = Clamp01MapToRange(CameraRelativeGroundP.z, FadeTopEndZ, FadeTopStartZ);
+		}
+		else if (CameraRelativeGroundP.z < FadeBottomStartZ)
+		{
+			RenderGroup->GlobalAlpha = Clamp01MapToRange(CameraRelativeGroundP.z, FadeBottomEndZ, FadeBottomStartZ);
+		}
+		
 		hero_bitmaps *HeroBitmaps = &GameState->HeroBitmaps[Entity->FacingDirection];						
 		switch (Entity->Type)
 		{
@@ -1353,7 +1374,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 			MoveEntity(GameState, SimRegion, Entity, dt, &MoveSpec, ddP);
 		}
 
-		Basis->P = GetEntityGroundPoint(Entity) + Vec3(0, 0, GameState->ZOffset);
+		Basis->P = GetEntityGroundPoint(Entity);
 	}
 
 #if 0
