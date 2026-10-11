@@ -103,16 +103,6 @@ Vec2(real32 X, real32 Y)
 }
 
 inline vec3
-ToVec3(vec2 XY, real32 Z)
-{
-	vec3 Result;
-	Result.xy = XY;
-	Result.z = Z;
-
-	return Result;
-}
-
-inline vec3
 Vec3(real32 X, real32 Y, real32 Z)
 {
 	vec3 Result;
@@ -135,7 +125,7 @@ Vec3(vec2 XY, real32 Z)
 }
 
 inline vec4
-ToVec4(vec3 XYZ, real32 W)
+Vec4(vec3 XYZ, real32 W)
 {
 	vec4 Result;
 	Result.xyz = XYZ;

@@ -62,8 +62,17 @@ struct bitmap_header
 };
 #pragma pack(pop)
 
+inline vec2
+TopDownAlign(loaded_bitmap *Bitmap, vec2 Align)
+{
+	Align.y = (Bitmap->Height - 1) - Align.y;
+
+	return Align;
+}
+
 internal loaded_bitmap 
-DEBUGLoadBMP(thread_context *Thread, debug_platform_read_entire_file *ReadEntireFile, char *Filename)
+DEBUGLoadBMP(thread_context *Thread, debug_platform_read_entire_file *ReadEntireFile, char *Filename,
+			 int32 AlignX=0, int32 TopDownAlignY=0)
 {
 	loaded_bitmap Result = {};	
 
@@ -75,7 +84,8 @@ DEBUGLoadBMP(thread_context *Thread, debug_platform_read_entire_file *ReadEntire
 		Result.Memory = Pixels;
 		Result.Width = Header->Width;
 		Result.Height = Header->Height;
-
+		Result.Align = TopDownAlign(&Result, Vec2i(AlignX, TopDownAlignY));
+		
 		Assert(Header->Compression == 3);
 		
 		uint32 RedMask = Header->RedMask;
@@ -160,7 +170,7 @@ DrawHitPoints(sim_entity *SimEntity, render_group *Group)
 				Color = {0.2f, 0.2f, 0.2f, 1.0f};
 			}
 
-			PushRect(Group, HitP, 0, HealthDim, Color, 0.0f);
+			PushRect(Group, Vec3(HitP, 0), HealthDim, Color);
 			HitP += dHitP;
 		}
 	}
@@ -458,7 +468,7 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer
 				vec2 Offset = {Width*RandomUnilateral(&Series), Height*RandomUnilateral(&Series)};
 				vec2 P = Center + Offset - BitmapCenter;
 
-				PushBitmap(RenderGroup, Stamp, P, 0.0f, Vec2(0, 0));
+				PushBitmap(RenderGroup, Stamp, Vec3(P, 0.0f));
 			}
 		}
 	}
@@ -483,7 +493,7 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer
 				vec2 Offset = {Width*RandomUnilateral(&Series), Height*RandomUnilateral(&Series)};
 				vec2 P = Center + Offset - BitmapCenter;
 
-				PushBitmap(RenderGroup, Stamp, P, 0.0f, Vec2(0, 0));
+				PushBitmap(RenderGroup, Stamp, Vec3(P, 0.0f));
 			}
 		}
 	}
@@ -509,6 +519,7 @@ MakeEmptyBitmap(memory_arena *Arena, int32 Width, int32 Height, bool32 ClearToZe
 
 	Result.Width = Width;
 	Result.Height = Height;
+	Result.Align = 0.5f*Vec2i(Result.Width, Result.Height);
 	Result.Pitch = Result.Width * BITMAP_BYTES_PER_PIXEL;
 	int32 TotalBitmapSize = Width*Height*BITMAP_BYTES_PER_PIXEL;
 	Result.Memory = _PushSize(Arena, TotalBitmapSize);
@@ -657,18 +668,14 @@ MakePyramidNormalMap(loaded_bitmap *Bitmap, real32 Roughness)
 	}
 }
 
-inline vec2
-TopDownAlign(loaded_bitmap *Bitmap, vec2 Align)
-{
-	Align.y = (Bitmap->Height - 1) - Align.y;
-
-	return Align;
-}
-
 internal void
 SetTopDownAlign(hero_bitmaps *Bitmap, vec2 Align)
 {
-	Bitmap->Align = TopDownAlign(&Bitmap->Head, Align);
+	Align = TopDownAlign(&Bitmap->Head, Align);
+
+	Bitmap->Head.Align = Align;
+	Bitmap->Cape.Align = Align;
+	Bitmap->Torso.Align = Align;
 }
 
 extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
@@ -748,13 +755,13 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		GameState->Backdrop =
 			DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_background.bmp");
 		GameState->Shadow =
-			DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_shadow.bmp");
+			DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test/test_hero_shadow.bmp", 72, 182);
 		GameState->Tree =
-			DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test2/tree00.bmp");
+			DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test2/tree00.bmp", 40, 80);
 		GameState->Stairwell =
 			DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test2/rock02.bmp");
 		GameState->Sword =
-			DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test2/rock03.bmp");
+			DEBUGLoadBMP(Thread, Memory->DEBUGPlatformReadEntireFile, "test2/rock03.bmp", 29, 10);
 		
 		
 		hero_bitmaps *Bitmap = GameState->HeroBitmaps;
@@ -1093,7 +1100,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		{
 			loaded_bitmap *Bitmap = &GroundBuffer->Bitmap;
 			vec3 Delta = Subtract(GameState->World, &GroundBuffer->P, &GameState->CameraP);			
-			PushBitmap(RenderGroup, Bitmap, Delta.xy, Delta.z, 0.5f*Vec2i(Bitmap->Width, Bitmap->Height));
+			PushBitmap(RenderGroup, Bitmap, Delta);
 		}
 	}
 
@@ -1212,10 +1219,10 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 					}
 				}
 				
-				PushBitmap(RenderGroup, &GameState->Shadow, Vec2(0, 0), 0, HeroBitmaps->Align, ShadowAlpha, 0.0f);
-		    	PushBitmap(RenderGroup, &HeroBitmaps->Torso, Vec2(0, 0), 0, HeroBitmaps->Align);
-		    	PushBitmap(RenderGroup, &HeroBitmaps->Cape, Vec2(0, 0), 0, HeroBitmaps->Align);
-		    	PushBitmap(RenderGroup, &HeroBitmaps->Head, Vec2(0, 0), 0, HeroBitmaps->Align);
+				PushBitmap(RenderGroup, &GameState->Shadow, Vec3(0, 0, 0), ShadowAlpha);
+		    	PushBitmap(RenderGroup, &HeroBitmaps->Torso, Vec3(0, 0, 0));
+		    	PushBitmap(RenderGroup, &HeroBitmaps->Cape, Vec3(0, 0, 0));
+		    	PushBitmap(RenderGroup, &HeroBitmaps->Head, Vec3(0, 0, 0));
 				
 				DrawHitPoints(Entity, RenderGroup);
 		    } break;
@@ -1232,15 +1239,14 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 					MakeEntityNonSpatial(Entity);
 				}
        	 		
-				vec2 Alignment = TopDownAlign(&GameState->Sword, Vec2(29, 10));
-				PushBitmap(RenderGroup, &GameState->Shadow, Vec2(0, 0), 0, HeroBitmaps->Align, ShadowAlpha, 0.0f);
-				PushBitmap(RenderGroup, &GameState->Sword, Vec2(0, 0), 0, Alignment);
+				PushBitmap(RenderGroup, &GameState->Shadow, Vec3(0, 0, 0), ShadowAlpha);
+				PushBitmap(RenderGroup, &GameState->Sword, Vec3(0, 0, 0));
 			} break;
 			
 		    case EntityType_Monster:
 		    {
-		    	PushBitmap(RenderGroup, &GameState->Shadow, Vec2(0, 0), 0, HeroBitmaps->Align, ShadowAlpha, 0.0f);
-		    	PushBitmap(RenderGroup, &HeroBitmaps->Torso, Vec2(0, 0), 0, HeroBitmaps->Align);
+		    	PushBitmap(RenderGroup, &GameState->Shadow, Vec3(0, 0, 0), ShadowAlpha);
+		    	PushBitmap(RenderGroup, &HeroBitmaps->Torso, Vec3(0, 0, 0));
 
 				DrawHitPoints(Entity, RenderGroup);
 		    } break;
@@ -1285,20 +1291,19 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     				Entity->tBob -= (2.0f*Pi32);
     			}
     			real32 BobSin = Sin(2.0f*Entity->tBob);
-    			PushBitmap(RenderGroup, &GameState->Shadow, Vec2(0, 0), 0, HeroBitmaps->Align, (0.5f*ShadowAlpha) + 0.2f*BobSin, 0.0f);
-    			PushBitmap(RenderGroup, &HeroBitmaps->Head, Vec2(0, 0), 0.25f*BobSin, HeroBitmaps->Align);
+    			PushBitmap(RenderGroup, &GameState->Shadow, Vec3(0, 0, 0), (0.5f*ShadowAlpha) + 0.2f*BobSin);
+    			PushBitmap(RenderGroup, &HeroBitmaps->Head, Vec3(0, 0, 0.25f*BobSin));
      		} break;
 	 		
 	 	    case EntityType_Wall:
 			{
-				vec2 Alignment = TopDownAlign(&GameState->Tree, Vec2(40, 80));
-				PushBitmap(RenderGroup, &GameState->Tree, Vec2(0, 0), 0, Alignment);
+				PushBitmap(RenderGroup, &GameState->Tree, Vec3(0, 0, 0));
 			} break;
 
 		    case EntityType_Stairwell:
-			{
-				PushRect(RenderGroup, Vec2(0, 0), 0, Entity->WalkableDim, Vec4(1, 0.5f, 0, 1), 0);
-				PushRect(RenderGroup, Vec2(0, 0), Entity->WalkableHeight, Entity->WalkableDim, Vec4(1, 1, 0, 1), 0);
+			{ // NOTE continue here
+				PushRect(RenderGroup, Vec3(0, 0, 0), Entity->WalkableDim, Vec4(1, 0.5f, 0, 1));
+				PushRect(RenderGroup, Vec3(0, 0, Entity->WalkableHeight), Entity->WalkableDim, Vec4(1, 1, 0, 1));
 
 			} break;
 
@@ -1308,7 +1313,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 				for (uint32 VolumeIndex = 0; VolumeIndex < Entity->Collision->VolumeCount; ++VolumeIndex)
 				{
 					sim_entity_collision_volume *Volume = Entity->Collision->Volumes + VolumeIndex;
-					PushRectOutline(RenderGroup, Volume->OffsetP.xy, 0, Volume->Dim.xy, Vec4(0, 0.5f, 1.0f, 1.0f), 0);
+					PushRectOutline(RenderGroup, Volume->OffsetP - Vec3(0, 0, 0.5f*Volume->Dim.z), Volume->Dim.xy, Vec4(0, 0.5f, 1.0f, 1.0f));
 				}
 #endif
 			} break;
@@ -1328,7 +1333,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		Basis->P = GetEntityGroundPoint(Entity);
 	}
 
-#if 0
+#if 1
 	GameState->Time += Input->dtForFrame;	
 
 	vec3 MapColor[] = {
@@ -1349,7 +1354,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 			bool32 CheckerOn = RowCheckerOn;
 			for (int32 X = 0; X < LOD->Width; X += CheckerWidth)
 			{
-				vec4 Color = CheckerOn ? ToVec4(MapColor[MapIndex], 1.0f) : Vec4(0, 0, 0, 1);
+				vec4 Color = CheckerOn ? Vec4(MapColor[MapIndex], 1.0f) : Vec4(0, 0, 0, 1);
 				vec2 MinP = Vec2i(X, Y);
 				vec2 MaxP = MinP + Vec2i(CheckerWidth, CheckerHeight);
 				DrawRectangle(LOD, MinP, MaxP, Color);

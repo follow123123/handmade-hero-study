@@ -467,11 +467,11 @@ DrawMatte(loaded_bitmap *Buffer, loaded_bitmap *Bitmap,
 internal void
 DrawRectangleOutline(loaded_bitmap *Buffer, vec2 vMin, vec2 vMax, vec3 Color, real32 R=2.0f)
 {		
-	DrawRectangle(Buffer, Vec2(vMin.x - R, vMin.y - R), Vec2(vMax.x + R, vMin.y + R), ToVec4(Color, 1.0f));
-	DrawRectangle(Buffer, Vec2(vMin.x - R, vMax.y - R), Vec2(vMax.x + R, vMax.y + R), ToVec4(Color, 1.0f));
+	DrawRectangle(Buffer, Vec2(vMin.x - R, vMin.y - R), Vec2(vMax.x + R, vMin.y + R), Vec4(Color, 1.0f));
+	DrawRectangle(Buffer, Vec2(vMin.x - R, vMax.y - R), Vec2(vMax.x + R, vMax.y + R), Vec4(Color, 1.0f));
 	
-	DrawRectangle(Buffer, Vec2(vMin.x - R, vMin.y - R), Vec2(vMin.x + R, vMax.y + R), ToVec4(Color, 1.0f));
-	DrawRectangle(Buffer, Vec2(vMax.x - R, vMin.y - R), Vec2(vMax.x + R, vMax.y + R), ToVec4(Color, 1.0f));
+	DrawRectangle(Buffer, Vec2(vMin.x - R, vMin.y - R), Vec2(vMin.x + R, vMax.y + R), Vec4(Color, 1.0f));
+	DrawRectangle(Buffer, Vec2(vMax.x - R, vMin.y - R), Vec2(vMax.x + R, vMax.y + R), Vec4(Color, 1.0f));
 }
 
 internal void
@@ -570,7 +570,7 @@ ChangeSaturation(loaded_bitmap *Buffer, real32 Level)
 			real32 Avg = (1.0f / 3.0f) * (D.r + D.g + D.b);
 			vec3 Delta = Vec3(D.r - Avg, D.g - Avg, D.b - Avg);
 
-			vec4 Result = ToVec4(Vec3(Avg, Avg, Avg) + Delta*Level, D.a);
+			vec4 Result = Vec4(Vec3(Avg, Avg, Avg) + Delta*Level, D.a);
 
 			Result = Linear1ToSRGB255(Result);
 
@@ -603,13 +603,10 @@ AllocateRenderGroup(memory_arena *Arena, uint32 MaxPushBufferSize, real32 Meters
 inline vec2
 GetRenderEntityBasisP(render_group *RenderGroup, render_entity_basis *EntityBasis, vec2 ScreenCenter)   
 {
-	vec3 EntityBaseP = EntityBasis->Basis->P;
-	real32 ZFudge = 1.0f + 0.1f*(EntityBaseP.z + EntityBasis->OffsetZ);
-
-	vec2 EntityGroundPoint = ScreenCenter + ZFudge*RenderGroup->MetersToPixels*EntityBaseP.xy;
-	real32 EntityZ = RenderGroup->MetersToPixels*EntityBaseP.z;
-     		
-	vec2 Center = EntityGroundPoint + EntityBasis->Offset + Vec2(0, EntityBasis->EntityZC*EntityZ);
+	vec3 EntityBaseP = RenderGroup->MetersToPixels*EntityBasis->Basis->P;
+	real32 ZFudge = 1.0f + 0.1f*EntityBaseP.z;
+	vec2 EntityGroundPoint = ScreenCenter + ZFudge*EntityBaseP.xy + EntityBasis->Offset.xy;	 		
+	vec2 Center = EntityGroundPoint + Vec2(0, EntityBaseP.z+EntityBasis->Offset.z);
 
 	return Center;
 }
@@ -664,9 +661,8 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_bitmap *OutputBuffer)
      			render_entry_rectangle *Entry = (render_entry_rectangle *)Data;
      
 				vec2 P = GetRenderEntityBasisP(RenderGroup, &Entry->EntityBasis, ScreenCenter);
-     			vec2 Dim = Entry->Dim * MetersToPixels;;
 				
-     			DrawRectangle(OutputBuffer, P, P + Dim, Entry->Color);
+     			DrawRectangle(OutputBuffer, P, P + Entry->Dim, Entry->Color);
 
      			BaseAddress += sizeof(*Entry);			
      		} break;
@@ -736,56 +732,43 @@ _PushRenderElement(render_group *Group, uint32 Size, render_group_entry_type Typ
 }
 
 inline void
-PushPiece(render_group *Group, loaded_bitmap *Bitmap,
-		  vec2 Offset, real32 OffsetZ, vec2 Align, vec2 Dim, vec4 Color, real32 EntityZC)
+PushBitmap(render_group *RenderGroup, loaded_bitmap *Bitmap, vec3 Offset, real32 Alpha=1.0f)
 {
-	render_entry_bitmap *Piece = PushRenderElement(Group, render_entry_bitmap);
+	render_entry_bitmap *Piece = PushRenderElement(RenderGroup, render_entry_bitmap);
 	if (Piece)
 	{
+		vec2 Align = Bitmap->Align;
+		
 		Piece->Bitmap = Bitmap;
-		Piece->EntityBasis.Basis = Group->DefaultBasis;
-		Piece->EntityBasis.Offset = Group->MetersToPixels*Vec2(Offset.x, Offset.y) - Align;
-		Piece->EntityBasis.OffsetZ = OffsetZ;
-		Piece->EntityBasis.EntityZC = EntityZC;
-		Piece->Color = Color;
+		Piece->EntityBasis.Basis = RenderGroup->DefaultBasis;
+		Piece->EntityBasis.Offset = RenderGroup->MetersToPixels*Offset - Vec3(Align, 0);
+		Piece->Color = Vec4(1, 1, 1, Alpha);
 	}
-}
-inline void
-PushBitmap(render_group *RenderGroup, loaded_bitmap *Bitmap,
-		   vec2 Offset, real32 OffsetZ, vec2 Align, real32 Alpha=1.0f, real32 EntityZC=1.0f)
-{
-	PushPiece(RenderGroup, Bitmap, Offset, OffsetZ, Align, Vec2(0, 0), Vec4(1.0f, 1.0f, 1.0f, Alpha), EntityZC);
 }
 
 inline void
-PushRect(render_group *RenderGroup,
-		 vec2 Offset, real32 OffsetZ, vec2 Dim, vec4 Color, real32 EntityZC=1.0f)
+PushRect(render_group *RenderGroup, vec3 Offset, vec2 Dim, vec4 Color)
 {
 	render_entry_rectangle *Piece = PushRenderElement(RenderGroup, render_entry_rectangle);
 	if (Piece)
 	{
-		vec2 HalfDim = 0.5f*RenderGroup->MetersToPixels*Dim;
-		
 		Piece->EntityBasis.Basis = RenderGroup->DefaultBasis;
-		Piece->EntityBasis.Offset = RenderGroup->MetersToPixels*Vec2(Offset.x, -Offset.y) - HalfDim;
-		Piece->EntityBasis.OffsetZ = OffsetZ;
-		Piece->EntityBasis.EntityZC = EntityZC;
+		Piece->EntityBasis.Offset = RenderGroup->MetersToPixels*(Offset - Vec3(0.5f*Dim, 0));
 		Piece->Color = Color;
-		Piece->Dim = Dim;
+		Piece->Dim = RenderGroup->MetersToPixels*Dim;
 	}
 }
 
 inline void
-PushRectOutline(render_group *RenderGroup,
-				vec2 Offset, real32 OffsetZ, vec2 Dim, vec4 Color, real32 EntityZC=1.0f)
+PushRectOutline(render_group *RenderGroup, vec3 Offset, vec2 Dim, vec4 Color)
 {
 	real32 Thickness = 0.1f;
 	
-	PushRect(RenderGroup, (Offset - Vec2(0, 0.5f*Dim.y)), OffsetZ, Vec2(Dim.x, Thickness), Color, EntityZC);
-	PushRect(RenderGroup, (Offset + Vec2(0, 0.5f*Dim.y)), OffsetZ, Vec2(Dim.x, Thickness), Color, EntityZC);
+	PushRect(RenderGroup, Offset - Vec3(0, 0.5f*Dim.y, 0), Vec2(Dim.x, Thickness), Color);
+	PushRect(RenderGroup, Offset + Vec3(0, 0.5f*Dim.y, 0), Vec2(Dim.x, Thickness), Color);
 
-	PushRect(RenderGroup, (Offset - Vec2(0.5f*Dim.x, 0)), OffsetZ, Vec2(Thickness, Dim.y), Color, EntityZC);
-	PushRect(RenderGroup, (Offset + Vec2(0.5f*Dim.x, 0)), OffsetZ, Vec2(Thickness, Dim.y), Color, EntityZC);
+	PushRect(RenderGroup, Offset - Vec3(0.5f*Dim.x, 0, 0), Vec2(Thickness, Dim.y), Color);
+	PushRect(RenderGroup, Offset + Vec3(0.5f*Dim.x, 0, 0), Vec2(Thickness, Dim.y), Color);
 }
 
 inline void

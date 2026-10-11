@@ -3,6 +3,8 @@
 
 struct loaded_bitmap
 {
+	vec2 Align;
+
 	int32 Width;
 	int32 Height;
 	int32 Pitch;
@@ -37,9 +39,7 @@ struct render_group_entry_header
 struct render_entity_basis
 {
 	render_basis *Basis;
-	vec2 Offset;
-	real32 OffsetZ;
-	real32 EntityZC;
+	vec3 Offset;
 };
 
 struct render_entry_clear
