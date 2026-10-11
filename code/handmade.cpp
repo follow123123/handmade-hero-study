@@ -429,7 +429,7 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer
 { 
 	temporary_memory GroundMemory = BeginTemporaryMemory(&TranState->TranArena);
 	render_group *RenderGroup = AllocateRenderGroup(&TranState->TranArena, Megabytes(4), 1.0f);
-
+	RenderGroup->GlobalAlpha = 1.0f;	
 	Clear(RenderGroup, Vec4(1.0f, 1.0f, 0.0f, 1.0f));
 
 	loaded_bitmap *Buffer = &GroundBuffer->Bitmap;
@@ -807,8 +807,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		bool32 DoorDown = false;
 		for (uint32 ScreenIndex = 0; ScreenIndex < 2000; ++ScreenIndex)
 		{
-			// uint32 DoorDirection = RandomChoice(&Series, (DoorUp || DoorDown) ? 2 : 3);
-			uint32 DoorDirection = RandomChoice(&Series, 2);
+			uint32 DoorDirection = RandomChoice(&Series, (DoorUp || DoorDown) ? 2 : 3);
+			//uint32 DoorDirection = RandomChoice(&Series, 2);
 
 			bool32 CreatedZDoor = false;
 			if (DoorDirection == 2)
@@ -992,6 +992,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		TranState->IsInitialized = true;
 	}
 
+#if 0
 	if (Input->ExecutableReloaded)
 	{
 		for (uint32 GroundBufferIndex = 0; GroundBufferIndex < TranState->GroundBufferCount; ++GroundBufferIndex)
@@ -1000,7 +1001,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 			GroundBuffer->P = NullPosition();
 		}
 	}
-
+#endif
+	
 	world *World = GameState->World;
 
 	real32 MetersToPixels = GameState->MetersToPixels;
@@ -1055,6 +1057,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 				ConHero->dZ = 3.0f;
 			}
 
+ #if 0
 			if (Controller->ActionUp.EndedDown)
 			{
 				ConHero->dSword = {0.0f, 1.0f};
@@ -1071,12 +1074,25 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 			{
 				ConHero->dSword = {-1.0f, 0.0f};
 			}
+#else
+			real32 ZoomRate = 0.0f;
+			if (Controller->ActionUp.EndedDown)
+			{
+				ZoomRate = 1.0f;
+			}
+			if (Controller->ActionDown.EndedDown)
+			{
+				ZoomRate = -1.0f;
+			}
+			GameState->ZOffset += ZoomRate*Input->dtForFrame;
+#endif
 		}
 	}	
 
 	temporary_memory RenderMemory = BeginTemporaryMemory(&TranState->TranArena);
 	render_group *RenderGroup = AllocateRenderGroup(&TranState->TranArena, Megabytes(4), GameState->MetersToPixels);
-
+	RenderGroup->GlobalAlpha = 1.0f;
+	
 	loaded_bitmap _DrawBuffer = {};
 	loaded_bitmap *DrawBuffer = &_DrawBuffer;
 	DrawBuffer->Width = Buffer->Width;
@@ -1099,11 +1115,17 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		if (IsValid(GroundBuffer->P))
 		{
 			loaded_bitmap *Bitmap = &GroundBuffer->Bitmap;
-			vec3 Delta = Subtract(GameState->World, &GroundBuffer->P, &GameState->CameraP);			
-			PushBitmap(RenderGroup, Bitmap, Delta);
+			vec3 Delta = Subtract(GameState->World, &GroundBuffer->P, &GameState->CameraP);
+			Bitmap->Align = 0.5f*Vec2i(Bitmap->Width, Bitmap->Height);
+
+			render_basis *Basis = PushStruct(&TranState->TranArena, render_basis);
+			RenderGroup->DefaultBasis = Basis;
+			Basis->P = Delta + Vec3(0, 0, GameState->ZOffset);
+			PushBitmap(RenderGroup, Bitmap, Vec3(0, 0, 0));
 		}
 	}
 
+#if 1
 	{
 		world_position MinChunkP = MapIntoChunkSpace(World, GameState->CameraP, GetMinCorner(CameraBoundsInMeters));
 		world_position MaxChunkP = MapIntoChunkSpace(World, GameState->CameraP, GetMaxCorner(CameraBoundsInMeters));
@@ -1154,6 +1176,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 			}
 		}
 	}
+#endif
 	
 	vec3 SimBoundsExpansion = {15.0f, 15.0f,  15.0f};
 	rectangle3 SimBounds = AddRadiusTo(CameraBoundsInMeters, SimBoundsExpansion);
@@ -1219,7 +1242,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 					}
 				}
 				
-				PushBitmap(RenderGroup, &GameState->Shadow, Vec3(0, 0, 0), ShadowAlpha);
+				PushBitmap(RenderGroup, &GameState->Shadow, Vec3(0, 0, 0), Vec4(1, 1, 1, ShadowAlpha));
 		    	PushBitmap(RenderGroup, &HeroBitmaps->Torso, Vec3(0, 0, 0));
 		    	PushBitmap(RenderGroup, &HeroBitmaps->Cape, Vec3(0, 0, 0));
 		    	PushBitmap(RenderGroup, &HeroBitmaps->Head, Vec3(0, 0, 0));
@@ -1239,13 +1262,13 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 					MakeEntityNonSpatial(Entity);
 				}
        	 		
-				PushBitmap(RenderGroup, &GameState->Shadow, Vec3(0, 0, 0), ShadowAlpha);
+				PushBitmap(RenderGroup, &GameState->Shadow, Vec3(0, 0, 0), Vec4(1, 1, 1, ShadowAlpha));
 				PushBitmap(RenderGroup, &GameState->Sword, Vec3(0, 0, 0));
 			} break;
 			
 		    case EntityType_Monster:
 		    {
-		    	PushBitmap(RenderGroup, &GameState->Shadow, Vec3(0, 0, 0), ShadowAlpha);
+		    	PushBitmap(RenderGroup, &GameState->Shadow, Vec3(0, 0, 0), Vec4(1, 1, 1, ShadowAlpha));
 		    	PushBitmap(RenderGroup, &HeroBitmaps->Torso, Vec3(0, 0, 0));
 
 				DrawHitPoints(Entity, RenderGroup);
@@ -1291,7 +1314,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     				Entity->tBob -= (2.0f*Pi32);
     			}
     			real32 BobSin = Sin(2.0f*Entity->tBob);
-    			PushBitmap(RenderGroup, &GameState->Shadow, Vec3(0, 0, 0), (0.5f*ShadowAlpha) + 0.2f*BobSin);
+    			PushBitmap(RenderGroup, &GameState->Shadow, Vec3(0, 0, 0), Vec4(1, 1, 1, (0.5f*ShadowAlpha) + 0.2f*BobSin));
     			PushBitmap(RenderGroup, &HeroBitmaps->Head, Vec3(0, 0, 0.25f*BobSin));
      		} break;
 	 		
@@ -1330,10 +1353,10 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 			MoveEntity(GameState, SimRegion, Entity, dt, &MoveSpec, ddP);
 		}
 
-		Basis->P = GetEntityGroundPoint(Entity);
+		Basis->P = GetEntityGroundPoint(Entity) + Vec3(0, 0, GameState->ZOffset);
 	}
 
-#if 1
+#if 0
 	GameState->Time += Input->dtForFrame;	
 
 	vec3 MapColor[] = {

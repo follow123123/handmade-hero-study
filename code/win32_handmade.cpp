@@ -193,16 +193,6 @@ DEBUG_PLATFORM_WRITE_ENTIRE_FILE(DEBUGPlatformWriteEntireFile)
     return Result;
 }
 
-struct win32_game_code
-{
-    HMODULE GameCodeDLL;
-    FILETIME DLLLastWriteTime;
-    game_update_and_render *UpdateAndRender;
-    game_get_sound_samples *GetSoundSamples;
-    
-    bool32 IsValid;
-};
-
 internal FILETIME
 Win32GetLastWriteTime(char *Filename)
 {
@@ -1328,8 +1318,7 @@ WinMain(
 						Buffer.Width = GlobalBackBuffer.Width;
 						Buffer.Height = GlobalBackBuffer.Height;
 						Buffer.Pitch = GlobalBackBuffer.Pitch;
-						Buffer.BytesPerPixel = GlobalBackBuffer.BytesPerPixel;
-
+						
 						if (Win32State.InputRecordingIndex)
 						{
 							Win32RecordInput(&Win32State, NewInput);

@@ -28,7 +28,6 @@ enum render_group_entry_type
 	RenderGroupEntryType_render_entry_bitmap,
 	RenderGroupEntryType_render_entry_rectangle,
 	RenderGroupEntryType_render_entry_coordinate_system,
-	RenderGroupEntryType_render_entry_saturation,
 };
 
 struct render_group_entry_header
@@ -57,7 +56,6 @@ struct render_entry_bitmap
 	render_entity_basis EntityBasis;
 	loaded_bitmap *Bitmap;
 	vec4 Color;
-	vec2 Dim;
 };
 
 struct render_entry_rectangle
@@ -83,6 +81,8 @@ struct render_entry_coordinate_system
 
 struct render_group
 {
+	real32 GlobalAlpha;
+
 	render_basis *DefaultBasis;
 	real32 MetersToPixels;
 

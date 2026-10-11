@@ -31,6 +31,7 @@ InitializeArena(memory_arena *Arena, memory_index Size, void *Base)
 
 #define PushStruct(Arena, type) (type *)_PushSize(Arena, sizeof(type))
 #define PushArray(Arena, Count, type) (type *)_PushSize(Arena, Count*sizeof(type))
+#define PushSize(Arena, Size) _PushSize(Arena, Size)
 inline void *
 _PushSize(memory_arena *Arena, memory_index Size)
 {
@@ -168,7 +169,8 @@ struct game_state
 	sim_entity_collision_volume_group *StandardRoomCollision;
 
 	real32 Time;
-
+	real32 ZOffset;
+	
 	loaded_bitmap TestDiffuse;
 	loaded_bitmap TestNormal;
 };

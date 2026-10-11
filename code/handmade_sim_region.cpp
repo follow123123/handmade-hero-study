@@ -409,13 +409,13 @@ EntitiesOverlap(sim_entity *Entity, sim_entity *TestEntity, vec3 Epsilon = Vec3(
 {
 	bool32 Result = false;
 	for (uint32 VolumeIndex = 0;
-		 VolumeIndex < Entity->Collision->VolumeCount;
+		 !Result && (VolumeIndex < Entity->Collision->VolumeCount);
 		 ++VolumeIndex)
 	{
 		sim_entity_collision_volume *EntityVolume = Entity->Collision->Volumes + VolumeIndex;
 							
 		for (uint32 TestVolumeIndex = 0;
-			 TestVolumeIndex < TestEntity->Collision->VolumeCount;
+			 !Result && (TestVolumeIndex < TestEntity->Collision->VolumeCount);
 			 ++TestVolumeIndex)
 		{
 			sim_entity_collision_volume *TestVolume = TestEntity->Collision->Volumes + TestVolumeIndex;

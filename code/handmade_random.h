@@ -538,7 +538,11 @@ inline uint32
 RandomNextUint32(random_series *Series)
 {
 	uint32 Result = RandomNumberTable[Series->Index++];
-
+	if (Series->Index > ArrayCount(RandomNumberTable))
+	{
+		Series->Index = 0;
+	}
+	
 	return Result;
 }
 
@@ -578,7 +582,7 @@ RandomBetween(random_series *Series, real32 Min, real32 Max)
 inline int32
 RandomBetween(random_series *Series, int32 Min, int32 Max)
 {
-	int32 Result = Min + RandomChoice(Series, Max-Min);
+	int32 Result = Min + RandomNextUint32(Series)%(Max + 1 - Min);
 
 	return Result;
 }

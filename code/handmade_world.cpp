@@ -160,6 +160,14 @@ CenteredChunkPoint(uint32 ChunkX, uint32 ChunkY, uint32 ChunkZ)
 	return Result;
 }
 
+inline world_position
+CenteredChunkPoint(world_chunk *Chunk)
+{
+	world_position Result = CenteredChunkPoint(Chunk->ChunkX, Chunk->ChunkY, Chunk->ChunkZ);
+
+	return Result;
+}
+
 inline void
 ChangeEntityLocationRaw(memory_arena *Arena, world *World, uint32 LowEntityIndex,
 						world_position *OldP, world_position *NewP)
@@ -181,9 +189,9 @@ ChangeEntityLocationRaw(memory_arena *Arena, world *World, uint32 LowEntityIndex
 			{
 				bool32 NotFound = true;				
 				world_entity_block *FirstBlock = &Chunk->FirstBlock;				
-				for (world_entity_block *Block = FirstBlock; Block; Block = Block->Next)
+				for (world_entity_block *Block = FirstBlock; Block && NotFound; Block = Block->Next)
 				{
-					for (uint32 Index = 0; Index < Block->EntityCount; ++Index)
+					for (uint32 Index = 0; Index < Block->EntityCount && NotFound; ++Index)
 					{
 						if (Block->LowEntityIndex[Index] == LowEntityIndex)
 						{
