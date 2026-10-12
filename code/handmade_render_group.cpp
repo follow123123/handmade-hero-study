@@ -604,19 +604,29 @@ struct entity_basis_p_result
 {
 	vec2 P;
 	real32 Scale;
+	bool32 Valid;
 };
 inline entity_basis_p_result
 GetRenderEntityBasisP(render_group *RenderGroup, render_entity_basis *EntityBasis, vec2 ScreenCenter)   
 {
-	entity_basis_p_result Result;
-	
-	vec3 EntityBaseP = RenderGroup->MetersToPixels*EntityBasis->Basis->P;
-	real32 ZFudge = 1.0f + 0.0015f*EntityBaseP.z;
-	vec2 EntityGroundPoint = ScreenCenter + ZFudge*(EntityBaseP.xy + EntityBasis->Offset.xy);	 		
-	vec2 Center = EntityGroundPoint; //+ Vec2(0, EntityBaseP.z+EntityBasis->Offset.z);
+	entity_basis_p_result Result = {};
 
-	Result.P = Center;
-	Result.Scale = ZFudge;
+	vec3 EntityBasisP = RenderGroup->MetersToPixels*EntityBasis->Basis->P;	
+
+	real32 FocalLength = RenderGroup->MetersToPixels*20.0f;
+	real32 CameraDistanceAboveTarget = RenderGroup->MetersToPixels*20.f;
+	real32 DistanceToPZ = CameraDistanceAboveTarget - EntityBasisP.z;
+	real32 NearClipPlane = RenderGroup->MetersToPixels*0.2f;
+	
+	vec3 RawXY = Vec3(EntityBasisP.xy + EntityBasis->Offset.xy, 1.0f);
+
+	if (DistanceToPZ > NearClipPlane)
+	{
+		vec3 ProjectedXY = (1.0f / DistanceToPZ) * FocalLength*RawXY;
+		Result.P = ScreenCenter + ProjectedXY.xy;;
+		Result.Scale = ProjectedXY.z;
+		Result.Valid = true;
+	}
 	
 	return Result;
 }
