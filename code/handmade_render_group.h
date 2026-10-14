@@ -3,8 +3,9 @@
 
 struct loaded_bitmap
 {
-	vec2 Align;
-
+	vec2 AlignPercentage;
+	real32 WidthOverHeight;
+	
 	int32 Width;
 	int32 Height;
 	int32 Pitch;
@@ -56,6 +57,7 @@ struct render_entry_bitmap
 	render_entity_basis EntityBasis;
 	loaded_bitmap *Bitmap;
 	vec4 Color;
+	vec2 Size;
 };
 
 struct render_entry_rectangle
@@ -84,7 +86,6 @@ struct render_group
 	real32 GlobalAlpha;
 
 	render_basis *DefaultBasis;
-	real32 MetersToPixels;
 
 	uint32 MaxPushBufferSize;
 	uint32 PushBufferSize;	

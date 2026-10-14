@@ -132,9 +132,6 @@ struct game_state
 	world *World;
 	
 	real32 TypicalFloorHeight;
-
-	real32 MetersToPixels;
-	real32 PixelsToMeters;
 	
 	uint32 CameraFollowingEntityIndex;
 	world_position CameraP;
