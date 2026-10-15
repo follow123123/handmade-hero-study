@@ -81,8 +81,20 @@ struct render_entry_coordinate_system
 	environment_map *Bottom;	
 };
 
+
+struct render_group_camera
+{
+	real32 FocalLength;
+	real32 DistanceAboveTarget;
+};
 struct render_group
 {
+	render_group_camera GameCamera;
+	render_group_camera RenderCamera;
+
+	real32 MetersToPixels;
+	vec2 MonitorHalfDimInMeters;
+	
 	real32 GlobalAlpha;
 
 	render_basis *DefaultBasis;

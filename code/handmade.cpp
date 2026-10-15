@@ -432,7 +432,7 @@ internal void
 FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer *GroundBuffer, world_position *ChunkP)
 { 
 	temporary_memory GroundMemory = BeginTemporaryMemory(&TranState->TranArena);
-	render_group *RenderGroup = AllocateRenderGroup(&TranState->TranArena, Megabytes(4));
+	render_group *RenderGroup = AllocateRenderGroup(&TranState->TranArena, Megabytes(4), 1980, 1080);
 	RenderGroup->GlobalAlpha = 1.0f;	
 	Clear(RenderGroup, Vec4(1.0f, 1.0f, 0.0f, 1.0f));
 
@@ -814,7 +814,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 			uint32 DoorDirection = RandomChoice(&Series, (DoorUp || DoorDown) ? 2 : 4);
 			//uint32 DoorDirection = RandomChoice(&Series, 2);
 
-			DoorDirection = 3;
+			//DoorDirection = 3;
 			
 			bool32 CreatedZDoor = false;
 			if (DoorDirection == 3)
@@ -1093,11 +1093,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 #endif
 		}
 	}	
-
-	temporary_memory RenderMemory = BeginTemporaryMemory(&TranState->TranArena);
-	render_group *RenderGroup = AllocateRenderGroup(&TranState->TranArena, Megabytes(4));
-	RenderGroup->GlobalAlpha = 1.0f;
 	
+	temporary_memory RenderMemory = BeginTemporaryMemory(&TranState->TranArena);
+
 	loaded_bitmap _DrawBuffer = {};
 	loaded_bitmap *DrawBuffer = &_DrawBuffer;
 	DrawBuffer->Width = Buffer->Width;
@@ -1105,14 +1103,17 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 	DrawBuffer->Pitch = Buffer->Pitch;
 	DrawBuffer->Memory = Buffer->Memory;
 
+	render_group *RenderGroup = AllocateRenderGroup(&TranState->TranArena, Megabytes(4),
+													DrawBuffer->Width, DrawBuffer->Height);
+
 	Clear(RenderGroup, Vec4(0.25f, 0.25f, 0.25f, 0.0f));	
 	
 	vec2 ScreenCenter = {0.5f*(real32)DrawBuffer->Width, 0.5f*(real32)DrawBuffer->Height};
    	
-	real32 ScreenWidthInMeters = (real32)DrawBuffer->Width*PixelsToMeters;
-	real32 ScreenHeightInMeters = (real32)DrawBuffer->Height*PixelsToMeters;
-	rectangle3 CameraBoundsInMeters = RectCenterDim(Vec3(0, 0, 0),
-											Vec3(ScreenWidthInMeters, ScreenHeightInMeters, 0));
+	rectangle2 ScreenBounds = GetCameraRectangleAtTarget(RenderGroup); //NOTE; might be wrong, check this
+	rectangle3 CameraBoundsInMeters = RectMinMax(Vec3(ScreenBounds.Min, 0), Vec3(ScreenBounds.Max, 0));
+	CameraBoundsInMeters.Min.z = -3.0f*GameState->TypicalFloorHeight;
+	CameraBoundsInMeters.Min.z = 1.0f*GameState->TypicalFloorHeight;
 
 #if 0
 	for (uint32 GroundBufferIndex = 0; GroundBufferIndex < TranState->GroundBufferCount; ++GroundBufferIndex)
@@ -1191,6 +1192,11 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		
 	vec3 CameraP = Subtract(GameState->World, &GameState->CameraP, &SimCenterP);
 
+	PushRectOutline(RenderGroup, Vec3(0, 0, 0), GetDim(ScreenBounds), Vec4(1.0f, 1.0f, 0.0f, 1.0f));
+	PushRectOutline(RenderGroup, Vec3(0, 0, 0), GetDim(CameraBoundsInMeters).xy, Vec4(1.0f, 1.0f, 1.0f, 1.0f));
+	PushRectOutline(RenderGroup, Vec3(0, 0, 0), GetDim(SimBounds).xy, Vec4(0.0f, 1.0f, 1.0f, 1.0f));
+	PushRectOutline(RenderGroup, Vec3(0, 0, 0), GetDim(SimRegion->Bounds).xy, Vec4(1.0f, 0.0f, 1.0f, 1.0f));
+	
 	sim_entity *Entity = SimRegion->Entities;
 	for (uint32 EntityIndex = 0; EntityIndex < SimRegion->EntityCount;
 		 ++EntityIndex, ++Entity)

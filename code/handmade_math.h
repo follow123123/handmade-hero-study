@@ -671,6 +671,14 @@ GetCenter(rectangle2 Rect)
 	return Result;
 }
 
+inline vec2
+GetDim(rectangle2 Rect)
+{
+	vec2 Result = Rect.Max - Rect.Min;
+
+	return Result;
+}
+
 inline rectangle2
 RectMinMax(vec2 Min, vec2 Max)
 {
@@ -692,7 +700,7 @@ RectMinDim(vec2 Min, vec2 Dim)
 }
 
 inline rectangle2
-RectHalfCenterDim(vec2 Center, vec2 HalfDim)
+RectCenterHalfDim(vec2 Center, vec2 HalfDim)
 {
 	rectangle2 Result;
 	Result.Min = Center - HalfDim;
@@ -714,7 +722,7 @@ AddRadiusTo(rectangle2 A, real32 RadiusW, real32 RadiusH)
 inline rectangle2
 RectCenterDim(vec2 Center, vec2 Dim)
 {
-	rectangle2 Result = RectHalfCenterDim(Center, 0.5*Dim);
+	rectangle2 Result = RectCenterHalfDim(Center, 0.5*Dim);
 
 	return Result;
 }
@@ -760,6 +768,14 @@ inline vec3
 GetCenter(rectangle3 Rect)
 {
 	vec3 Result = 0.5f*(Rect.Min + Rect.Max);
+	return Result;
+}
+
+inline vec3
+GetDim(rectangle3 Rect)
+{
+	vec3 Result = Rect.Max - Rect.Min;
+
 	return Result;
 }
 
