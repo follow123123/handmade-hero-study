@@ -189,6 +189,8 @@ DrawRectangleSlowly(loaded_bitmap *Buffer, vec2 Origin, vec2 XAxis, vec2 YAxis, 
 					environment_map *Bottom,
 					real32 PixelsToMeters)
 {
+	BEGIN_TIMED_BLOCK(DrawRectangleSlowly);
+
 	Color.rgb *= Color.a;
 
 	real32 XAxisLength = Length(XAxis);
@@ -250,6 +252,8 @@ DrawRectangleSlowly(loaded_bitmap *Buffer, vec2 Origin, vec2 XAxis, vec2 YAxis, 
 		uint32 *Pixel = (uint32 *)Row;
 		for (int X = XMin; X <= XMax; ++X)
 		{
+			BEGIN_TIMED_BLOCK(TestPixel);
+
 			vec2 PxielP = Vec2i(X, Y);
 			vec2 d = PxielP - Origin;
 			
@@ -263,6 +267,8 @@ DrawRectangleSlowly(loaded_bitmap *Buffer, vec2 Origin, vec2 XAxis, vec2 YAxis, 
 				(Edge2 < 0) &&
 				(Edge3 < 0))
 			{
+				BEGIN_TIMED_BLOCK(FillPixel);
+
 #if 1
 				vec2 ScreenSpaceUV = {InvWidthMax*(real32)X, FixedCastY};
 				real32 ZDiff = PixelsToMeters*((real32)Y - OriginY);
@@ -294,6 +300,7 @@ DrawRectangleSlowly(loaded_bitmap *Buffer, vec2 Origin, vec2 XAxis, vec2 YAxis, 
 				bilinear_sample TexelSample = BilinearSample(Texture, X, Y);
 				vec4 Texel = SRGBBilinearBlend(TexelSample, fX, fY);
 				
+#if 0
 				if (NormalMap)
 				{
 					bilinear_sample NormalSample = BilinearSample(NormalMap, X, Y);
@@ -345,12 +352,12 @@ DrawRectangleSlowly(loaded_bitmap *Buffer, vec2 Origin, vec2 XAxis, vec2 YAxis, 
 					}
 
 					Texel.rgb = Texel.rgb + Texel.a*LightColor;
-
 #if 0
 					Texel.rgb = Vec3(0.5f, 0.5f, 0.5f) + 0.5f*BounceDirection;
 					Texel.rgb *= Texel.a;
 #endif
 				}
+#endif
 
 				Texel = Hadamard(Texel, Color);
 				Texel.r = Clamp01(Texel.r);
@@ -374,13 +381,19 @@ DrawRectangleSlowly(loaded_bitmap *Buffer, vec2 Origin, vec2 XAxis, vec2 YAxis, 
 						  ((uint32)(Blended255.b + 0.5f) << 0));
 
 //				*Pixel = Color32;
+
+				END_TIMED_BLOCK(FillPixel);
 			}
 
 			++Pixel;
+
+			END_TIMED_BLOCK(TestPixel);
 		}
 
 		Row += Buffer->Pitch;
 	}
+
+	END_TIMED_BLOCK(DrawRectangleSlowly);
 }
 
 internal void
@@ -648,6 +661,8 @@ GetRenderEntityBasisP(render_group *RenderGroup, render_entity_basis *EntityBasi
 internal void
 RenderGroupToOutput(render_group *RenderGroup, loaded_bitmap *OutputBuffer)
 {
+	BEGIN_TIMED_BLOCK(RenderGroupToOutput);
+
 	vec2 ScreenDim = {(real32)OutputBuffer->Width, (real32)OutputBuffer->Height};
 	real32 MetersToPixels = ScreenDim.x / 20.0f;
 	real32 PixelsToMeters = 1.0f / MetersToPixels;
@@ -738,6 +753,8 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_bitmap *OutputBuffer)
 			InvalidDefaultCase;
 		}		
 	}
+
+	END_TIMED_BLOCK(RenderGroupToOutput);
 }
 
 #define PushRenderElement(Group, type) (type *)_PushRenderElement(Group, sizeof(type), RenderGroupEntryType_##type)
