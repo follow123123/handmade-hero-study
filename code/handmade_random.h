@@ -538,7 +538,7 @@ inline uint32
 RandomNextUint32(random_series *Series)
 {
 	uint32 Result = RandomNumberTable[Series->Index++];
-	if (Series->Index > ArrayCount(RandomNumberTable))
+	if (Series->Index >= ArrayCount(RandomNumberTable))
 	{
 		Series->Index = 0;
 	}
