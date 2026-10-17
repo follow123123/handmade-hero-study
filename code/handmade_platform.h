@@ -105,8 +105,7 @@ enum
 	DebugCycleCounter_GameUpdateAndRender,
 	DebugCycleCounter_RenderGroupToOutput,
 	DebugCycleCounter_DrawRectangleSlowly,
-	DebugCycleCounter_TestPixel,
-	DebugCycleCounter_FillPixel,
+	DebugCycleCounter_ProcessPixel,
 	DebugCycleCounter_DrawRectangleHopefullyQuickly,
 	DebugCycleCounter_Count,
 };
@@ -120,6 +119,7 @@ extern struct game_memory *DebugGlobalMemory;
 #if _MSC_VER
 #define BEGIN_TIMED_BLOCK(ID) uint64 StartCycleCount_##ID = __rdtsc();
 #define END_TIMED_BLOCK(ID) DebugGlobalMemory->Counters[DebugCycleCounter_##ID].CycleCount += __rdtsc() - StartCycleCount_##ID; ++DebugGlobalMemory->Counters[DebugCycleCounter_##ID].HitCount;
+#define END_TIMED_COUNTED(ID, Count) DebugGlobalMemory->Counters[DebugCycleCounter_##ID].CycleCount += __rdtsc() - StartCycleCount_##ID; DebugGlobalMemory->Counters[DebugCycleCounter_##ID].HitCount += Count;
 #else
 #define BEGIN_TIMED_BLOCK(ID)
 #define END_TIMED_BLOCK(ID)
