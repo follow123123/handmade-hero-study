@@ -456,9 +456,10 @@ DrawRectangleHopefullyQuickly(loaded_bitmap *Buffer, vec2 Origin, vec2 XAxis, ve
 	real32 One255 = 255.0f;
 
 	__m128 One = _mm_set1_ps(1.0f);
-	__m128 One255_x4 = _mm_set1_ps(255.0f);
+	__m128 One255_4x = _mm_set1_ps(255.0f);
 	__m128 Zero = _mm_set1_ps(0.0f);
-	__m128 Inv255_x4 = _mm_set1_ps(Inv255);
+	__m128 Half_4x = _mm_set1_ps(0.5f);
+	__m128 Inv255_4x = _mm_set1_ps(Inv255);
 	__m128 Colorr_4x = _mm_set1_ps(Color.r);
 	__m128 Colorg_4x = _mm_set1_ps(Color.g);
 	__m128 Colorb_4x = _mm_set1_ps(Color.b);
@@ -584,25 +585,25 @@ DrawRectangleHopefullyQuickly(loaded_bitmap *Buffer, vec2 Origin, vec2 XAxis, ve
 			}				
 
 			//NOTE; Convert texture from sRGB to linear brightness space				   
-			TexelAr = mm_square(_mm_mul_ps(Inv255_x4, TexelAr));
-			TexelAg = mm_square(_mm_mul_ps(Inv255_x4, TexelAg));
-			TexelAb = mm_square(_mm_mul_ps(Inv255_x4, TexelAb));
-			TexelAa = _mm_mul_ps(Inv255_x4, TexelAa);
+			TexelAr = mm_square(_mm_mul_ps(Inv255_4x, TexelAr));
+			TexelAg = mm_square(_mm_mul_ps(Inv255_4x, TexelAg));
+			TexelAb = mm_square(_mm_mul_ps(Inv255_4x, TexelAb));
+			TexelAa = _mm_mul_ps(Inv255_4x, TexelAa);
 
-			TexelBr = mm_square(_mm_mul_ps(Inv255_x4, TexelBr));
-			TexelBg = mm_square(_mm_mul_ps(Inv255_x4, TexelBg));
-			TexelBb = mm_square(_mm_mul_ps(Inv255_x4, TexelBb));
-			TexelBa = _mm_mul_ps(Inv255_x4, TexelBa);
+			TexelBr = mm_square(_mm_mul_ps(Inv255_4x, TexelBr));
+			TexelBg = mm_square(_mm_mul_ps(Inv255_4x, TexelBg));
+			TexelBb = mm_square(_mm_mul_ps(Inv255_4x, TexelBb));
+			TexelBa = _mm_mul_ps(Inv255_4x, TexelBa);
 
-			TexelCr = mm_square(_mm_mul_ps(Inv255_x4, TexelCr));
-			TexelCg = mm_square(_mm_mul_ps(Inv255_x4, TexelCg));
-			TexelCb = mm_square(_mm_mul_ps(Inv255_x4, TexelCb));
-			TexelCa = _mm_mul_ps(Inv255_x4, TexelCa);
+			TexelCr = mm_square(_mm_mul_ps(Inv255_4x, TexelCr));
+			TexelCg = mm_square(_mm_mul_ps(Inv255_4x, TexelCg));
+			TexelCb = mm_square(_mm_mul_ps(Inv255_4x, TexelCb));
+			TexelCa = _mm_mul_ps(Inv255_4x, TexelCa);
 
-			TexelDr = mm_square(_mm_mul_ps(Inv255_x4, TexelDr));
-			TexelDg = mm_square(_mm_mul_ps(Inv255_x4, TexelDg));
-			TexelDb = mm_square(_mm_mul_ps(Inv255_x4, TexelDb));
-			TexelDa = _mm_mul_ps(Inv255_x4, TexelDa);
+			TexelDr = mm_square(_mm_mul_ps(Inv255_4x, TexelDr));
+			TexelDg = mm_square(_mm_mul_ps(Inv255_4x, TexelDg));
+			TexelDb = mm_square(_mm_mul_ps(Inv255_4x, TexelDb));
+			TexelDa = _mm_mul_ps(Inv255_4x, TexelDa);
 
 			//NOTE; Bilinear texture blend
 			__m128 ifX = _mm_sub_ps(One, fX);
@@ -630,10 +631,10 @@ DrawRectangleHopefullyQuickly(loaded_bitmap *Buffer, vec2 Origin, vec2 XAxis, ve
 			Texelb = _mm_min_ps(_mm_max_ps(Texelb, Zero), One);
 
 			//NOTE; Convert from sRGB to linear brightness space
-			Destr = mm_square(_mm_mul_ps(Inv255_x4, Destr));
-			Destg = mm_square(_mm_mul_ps(Inv255_x4, Destg));
-			Destb = mm_square(_mm_mul_ps(Inv255_x4, Destb));
-			Desta = _mm_mul_ps(Inv255_x4, Desta);
+			Destr = mm_square(_mm_mul_ps(Inv255_4x, Destr));
+			Destg = mm_square(_mm_mul_ps(Inv255_4x, Destg));
+			Destb = mm_square(_mm_mul_ps(Inv255_4x, Destb));
+			Desta = _mm_mul_ps(Inv255_4x, Desta);
 
 			//NOTE; Destination blend
 			__m128 InvTexelA = _mm_sub_ps(One, Texela);
@@ -643,23 +644,25 @@ DrawRectangleHopefullyQuickly(loaded_bitmap *Buffer, vec2 Origin, vec2 XAxis, ve
 			Blendeda = _mm_add_ps(_mm_mul_ps(InvTexelA, Desta), Texela);
 
 			//NOTE; Convert from linear to sRGB				
-			Blendedr = _mm_mul_ps(One255_x4, _mm_sqrt_ps(Blendedr));
-			Blendedg = _mm_mul_ps(One255_x4, _mm_sqrt_ps(Blendedg));
-			Blendedb = _mm_mul_ps(One255_x4, _mm_sqrt_ps(Blendedb));
-			Blendeda = _mm_mul_ps(One255_x4, Blendeda);
+			Blendedr = _mm_mul_ps(One255_4x, _mm_sqrt_ps(Blendedr));
+			Blendedg = _mm_mul_ps(One255_4x, _mm_sqrt_ps(Blendedg));
+			Blendedb = _mm_mul_ps(One255_4x, _mm_sqrt_ps(Blendedb));
+			Blendeda = _mm_mul_ps(One255_4x, Blendeda);
 			
-			for (int I = 0; I < 4; ++I)
-			{
-				//NOTE; Repack
-				if (ShouldFill[I])
-				{
-					*(Pixel + I) = (((uint32)(M(Blendeda, I) + 0.5f) << 24) |
-									((uint32)(M(Blendedr, I) + 0.5f) << 16) |
-									((uint32)(M(Blendedg, I) + 0.5f) << 8) |
-									((uint32)(M(Blendedb, I) + 0.5f) << 0));
-				}
-			}
+			__m128i Intr = _mm_cvttps_epi32(_mm_add_ps(Blendedr, Half_4x));
+			__m128i Intg = _mm_cvttps_epi32(_mm_add_ps(Blendedg, Half_4x));
+			__m128i Intb = _mm_cvttps_epi32(_mm_add_ps(Blendedb, Half_4x));
+			__m128i Inta = _mm_cvttps_epi32(_mm_add_ps(Blendeda, Half_4x));
 
+			__m128i Sr = _mm_slli_epi32(Intr, 16);
+			__m128i Sg = _mm_slli_epi32(Intg, 8);
+			__m128i Sb = Intb;
+			__m128i Sa = _mm_slli_epi32(Inta, 24);
+
+			__m128i Out = _mm_or_si128(_mm_or_si128(Sr, Sg), _mm_or_si128(Sb, Sa));
+
+			_mm_storeu_si128((__m128i *)Pixel, Out);
+			
 			Pixel += 4;
 			
 		}
