@@ -390,11 +390,33 @@ DrawRectangleSlowly(loaded_bitmap *Buffer, vec2 Origin, vec2 XAxis, vec2 YAxis, 
 	END_TIMED_BLOCK(DrawRectangleSlowly);
 }
 
+struct counts
+{
+	int _mm_add_ps;
+	int _mm_sub_ps;
+	int _mm_mul_ps;
+	int _mm_castps_si128;
+	int _mm_and_ps;
+	int _mm_or_si128;
+	int _mm_cmpge_ps;
+	int _mm_cmple_ps;
+	int _mm_min_ps;
+	int _mm_max_ps;
+	int _mm_cvttps_epi32;
+	int _mm_cvtps_epi32;
+	int _mm_cvtepi32_ps;
+	int _mm_and_si128;
+	int _mm_andnot_si128;
+	int _mm_srli_epi32;
+	int _mm_slli_epi32;
+	int _mm_sqrt_ps;
+};
+
 internal void
-DrawRectangleHopefullyQuickly(loaded_bitmap *Buffer, vec2 Origin, vec2 XAxis, vec2 YAxis, vec4 Color,
+DrawRectangleQuickly(loaded_bitmap *Buffer, vec2 Origin, vec2 XAxis, vec2 YAxis, vec4 Color,
 							  loaded_bitmap *Texture, real32 PixelsToMeters)
 {
-	BEGIN_TIMED_BLOCK(DrawRectangleHopefullyQuickly);
+	BEGIN_TIMED_BLOCK(DrawRectangleQuickly);
 
 	Color.rgb *= Color.a;
 
@@ -459,6 +481,7 @@ DrawRectangleHopefullyQuickly(loaded_bitmap *Buffer, vec2 Origin, vec2 XAxis, ve
 	__m128 One255_4x = _mm_set1_ps(255.0f);
 	__m128 Zero = _mm_set1_ps(0.0f);
 	__m128 Half_4x = _mm_set1_ps(0.5f);
+	__m128 Four_4x = _mm_set1_ps(4.0f);
 	__m128 Inv255_4x = _mm_set1_ps(Inv255);
 	__m128i MaskFF = _mm_set1_epi32(0xFF);
 	__m128 Colorr_4x = _mm_set1_ps(Color.r);
@@ -483,23 +506,56 @@ DrawRectangleHopefullyQuickly(loaded_bitmap *Buffer, vec2 Origin, vec2 XAxis, ve
 	for (int Y = YMin; Y <= YMax; ++Y)
 	{
 		uint32 *Pixel = (uint32 *)Row;
+
+		__m128 PixelPy = _mm_set1_ps((real32)Y);
+		PixelPy = _mm_sub_ps(PixelPy, Originy_4x);
+
+		__m128 PixelPx = _mm_set_ps((real32)(XMin + 3),
+									(real32)(XMin + 2),
+									(real32)(XMin + 1),
+									(real32)(XMin + 0));
+		PixelPx = _mm_sub_ps(PixelPx, Originx_4x);
+		
 		for (int XI = XMin; XI <= XMax; XI += 4)
 		{
 			
 #define mm_square(a) _mm_mul_ps(a, a)
 #define M(a, i) ((float *)&(a))[i]
 #define Mi(a, i) ((int *)&(a))[i]
-			
-			__m128 PixelPx = _mm_set_ps((real32)(XI + 3),
-										(real32)(XI + 2),
-										(real32)(XI + 1),
-										(real32)(XI + 0));
-			__m128 PixelPy = _mm_set1_ps((real32)Y);
-			
-			__m128 dx = _mm_sub_ps(PixelPx, Originx_4x);
-			__m128 dy = _mm_sub_ps(PixelPy, Originy_4x);			
-			__m128 U = _mm_add_ps(_mm_mul_ps(dx, nXAxisx_4x), _mm_mul_ps(dy, nXAxisy_4x));
-			__m128 V = _mm_add_ps(_mm_mul_ps(dx, nYAxisx_4x), _mm_mul_ps(dy, nYAxisy_4x));
+
+#define COUNT_CYCLES 0
+
+#if COUNT_CYCLES
+			counts Counts = {};
+#define _mm_add_ps(a, b) ++Counts._mm_add_ps; a; b
+#define _mm_mul_ps(a, b) ++Counts._mm_mul_ps; a; b
+#define _mm_sub_ps(a, b) ++Counts._mm_sub_ps; a; b
+#define _mm_castps_si128(a) ++Counts._mm_castps_si128; a
+#define _mm_and_ps(a, b) ++Counts._mm_and_ps; a; b
+#define _mm_or_si128(a, b) ++Counts._mm_or_si128; a; b
+#define _mm_cmpge_ps(a, b) ++Counts._mm_cmpge_ps; a; b
+#define _mm_cmple_ps(a, b) ++Counts._mm_cmple_ps; a; b
+#define _mm_min_ps(a, b) ++Counts._mm_min_ps; a; b
+#define _mm_max_ps(a, b) ++Counts._mm_max_ps; a; b
+#define _mm_cvttps_epi32(a) ++Counts._mm_cvttps_epi32; a
+#define _mm_cvtps_epi32(a) ++Counts._mm_cvtps_epi32; a
+#define _mm_cvtepi32_ps(a) ++Counts._mm_cvtepi32_ps; a
+#define _mm_and_si128(a, b) ++Counts._mm_and_si128; a; b
+#define _mm_andnot_si128(a, b) ++Counts._mm_andnot_si128; a; b
+#define _mm_srli_epi32(a, b) ++Counts._mm_srli_epi32; a; b
+#define _mm_slli_epi32(a, b) ++Counts._mm_slli_epi32; a; b
+#define _mm_sqrt_ps(a) ++Counts._mm_sqrt_ps; a
+#undef mm_square
+#define mm_square(a) ++Counts._mm_mul_ps; a
+#define __m128 int
+#define __m128i int
+
+#define _mm_loadu_si128(a) 0
+#define _mm_storeu_si128(a, b) 
+
+#endif
+			__m128 U = _mm_add_ps(_mm_mul_ps(PixelPx, nXAxisx_4x), _mm_mul_ps(PixelPy, nXAxisy_4x));
+			__m128 V = _mm_add_ps(_mm_mul_ps(PixelPx, nYAxisx_4x), _mm_mul_ps(PixelPy, nYAxisy_4x));
 			
 			__m128i WriteMask = _mm_castps_si128(_mm_and_ps(_mm_and_ps(_mm_cmpge_ps(U, Zero), _mm_cmple_ps(U, One)),
 															_mm_and_ps(_mm_cmpge_ps(V, Zero), _mm_cmple_ps(V, One))));
@@ -522,6 +578,12 @@ DrawRectangleHopefullyQuickly(loaded_bitmap *Buffer, vec2 Origin, vec2 XAxis, ve
 			__m128i SampleB;
 			__m128i SampleC;
 			__m128i SampleD;
+#if COUNT_CYCLES
+			SampleA = 0;
+			SampleB = 0;
+			SampleC = 0;
+			SampleD = 0;
+#else
 			for (int I = 0; I < 4; ++I)
 			{				
 				{
@@ -538,32 +600,33 @@ DrawRectangleHopefullyQuickly(loaded_bitmap *Buffer, vec2 Origin, vec2 XAxis, ve
 					Mi(SampleD, I) = *(uint32 *)(TexelPtr + Texture->Pitch + sizeof(uint32));
 				}
 			}
+#endif
+			//NOTE; Unpack bilinear samples
+			__m128 TexelAr = _mm_cvtepi32_ps(_mm_and_si128(_mm_srli_epi32(SampleA, 16), MaskFF));
+			__m128 TexelAg = _mm_cvtepi32_ps(_mm_and_si128(_mm_srli_epi32(SampleA, 8), MaskFF));
+			__m128 TexelAb = _mm_cvtepi32_ps(_mm_and_si128(SampleA, MaskFF));
+			__m128 TexelAa = _mm_cvtepi32_ps(_mm_and_si128(_mm_srli_epi32(SampleA, 24), MaskFF));
 
-			__m128 TexelAr = _mm_cvtepi32_ps(_mm_and_epi32(_mm_srli_epi32(SampleA, 16), MaskFF));
-			__m128 TexelAg = _mm_cvtepi32_ps(_mm_and_epi32(_mm_srli_epi32(SampleA, 8), MaskFF));
-			__m128 TexelAb = _mm_cvtepi32_ps(_mm_and_epi32(_mm_srli_epi32(SampleA, 0), MaskFF));
-			__m128 TexelAa = _mm_cvtepi32_ps(_mm_and_epi32(_mm_srli_epi32(SampleA, 24), MaskFF));
+			__m128 TexelBr = _mm_cvtepi32_ps(_mm_and_si128(_mm_srli_epi32(SampleB, 16), MaskFF));
+			__m128 TexelBg = _mm_cvtepi32_ps(_mm_and_si128(_mm_srli_epi32(SampleB, 8), MaskFF));
+			__m128 TexelBb = _mm_cvtepi32_ps(_mm_and_si128(SampleB, MaskFF));
+			__m128 TexelBa = _mm_cvtepi32_ps(_mm_and_si128(_mm_srli_epi32(SampleB, 24), MaskFF));
 
-			__m128 TexelBr = _mm_cvtepi32_ps(_mm_and_epi32(_mm_srli_epi32(SampleB, 16), MaskFF));
-			__m128 TexelBg = _mm_cvtepi32_ps(_mm_and_epi32(_mm_srli_epi32(SampleB, 8), MaskFF));
-			__m128 TexelBb = _mm_cvtepi32_ps(_mm_and_epi32(_mm_srli_epi32(SampleB, 0), MaskFF));
-			__m128 TexelBa = _mm_cvtepi32_ps(_mm_and_epi32(_mm_srli_epi32(SampleB, 24), MaskFF));
+			__m128 TexelCr = _mm_cvtepi32_ps(_mm_and_si128(_mm_srli_epi32(SampleC, 16), MaskFF));
+			__m128 TexelCg = _mm_cvtepi32_ps(_mm_and_si128(_mm_srli_epi32(SampleC, 8), MaskFF));
+			__m128 TexelCb = _mm_cvtepi32_ps(_mm_and_si128(SampleC, MaskFF));
+			__m128 TexelCa = _mm_cvtepi32_ps(_mm_and_si128(_mm_srli_epi32(SampleC, 24), MaskFF));
 
-			__m128 TexelCr = _mm_cvtepi32_ps(_mm_and_epi32(_mm_srli_epi32(SampleC, 16), MaskFF));
-			__m128 TexelCg = _mm_cvtepi32_ps(_mm_and_epi32(_mm_srli_epi32(SampleC, 8), MaskFF));
-			__m128 TexelCb = _mm_cvtepi32_ps(_mm_and_epi32(_mm_srli_epi32(SampleC, 0), MaskFF));
-			__m128 TexelCa = _mm_cvtepi32_ps(_mm_and_epi32(_mm_srli_epi32(SampleC, 24), MaskFF));
-
-			__m128 TexelDr = _mm_cvtepi32_ps(_mm_and_epi32(_mm_srli_epi32(SampleD, 16), MaskFF));
-			__m128 TexelDg = _mm_cvtepi32_ps(_mm_and_epi32(_mm_srli_epi32(SampleD, 8), MaskFF));
-			__m128 TexelDb = _mm_cvtepi32_ps(_mm_and_epi32(_mm_srli_epi32(SampleD, 0), MaskFF));
-			__m128 TexelDa = _mm_cvtepi32_ps(_mm_and_epi32(_mm_srli_epi32(SampleD, 24), MaskFF));
+			__m128 TexelDr = _mm_cvtepi32_ps(_mm_and_si128(_mm_srli_epi32(SampleD, 16), MaskFF));
+			__m128 TexelDg = _mm_cvtepi32_ps(_mm_and_si128(_mm_srli_epi32(SampleD, 8), MaskFF));
+			__m128 TexelDb = _mm_cvtepi32_ps(_mm_and_si128(SampleD, MaskFF));
+			__m128 TexelDa = _mm_cvtepi32_ps(_mm_and_si128(_mm_srli_epi32(SampleD, 24), MaskFF));
 
 			//NOTE; Load Destination
-			__m128 Destr = _mm_cvtepi32_ps(_mm_and_epi32(_mm_srli_epi32(OriginalDest, 16), MaskFF));
-			__m128 Destg = _mm_cvtepi32_ps(_mm_and_epi32(_mm_srli_epi32(OriginalDest, 8), MaskFF));
-			__m128 Destb = _mm_cvtepi32_ps(_mm_and_epi32(_mm_srli_epi32(OriginalDest, 0), MaskFF));
-			__m128 Desta = _mm_cvtepi32_ps(_mm_and_epi32(_mm_srli_epi32(OriginalDest, 24), MaskFF));
+			__m128 Destr = _mm_cvtepi32_ps(_mm_and_si128(_mm_srli_epi32(OriginalDest, 16), MaskFF));
+			__m128 Destg = _mm_cvtepi32_ps(_mm_and_si128(_mm_srli_epi32(OriginalDest, 8), MaskFF));
+			__m128 Destb = _mm_cvtepi32_ps(_mm_and_si128(OriginalDest, MaskFF));
+			__m128 Desta = _mm_cvtepi32_ps(_mm_and_si128(_mm_srli_epi32(OriginalDest, 24), MaskFF));
 
 			//NOTE; Convert texture from sRGB to linear brightness space				   
 			TexelAr = mm_square(_mm_mul_ps(Inv255_4x, TexelAr));
@@ -646,14 +709,39 @@ DrawRectangleHopefullyQuickly(loaded_bitmap *Buffer, vec2 Origin, vec2 XAxis, ve
 
 			__m128i Out = _mm_or_si128(_mm_or_si128(Sr, Sg), _mm_or_si128(Sb, Sa));
 
-#if 1
 			__m128i MaskedOut = _mm_or_si128(_mm_and_si128(Out, WriteMask),
 											 _mm_andnot_si128(WriteMask, OriginalDest));
 
 			_mm_storeu_si128((__m128i *)Pixel, MaskedOut);
-#else
-			_mm_maskmoveu_si128(Out, WriteMask, (char *)Pixel);
+
+#if COUNT_CYCLES
+#undef _mm_add_ps
+
+			real32 OneThird = 1.0f / 3.0f;
+			real32 Total = 0.0f;
+#define Add(L, A) Total += (L*(real32)A)
+			
+			real32 mm_add_ps = Add(0.5f, Counts._mm_add_ps);
+			real32 mm_sub_ps = Add(0.5f, Counts._mm_sub_ps);
+			real32 mm_mul_ps = Add(0.5f, Counts._mm_mul_ps);
+			real32 mm_castps_si128 = Add(0, 0);
+			real32 mm_and_ps = Add(OneThird, Counts._mm_and_ps);
+			real32 mm_or_si128 = Add(OneThird, Counts._mm_or_si128);
+			real32 mm_cmpge_ps = Add(0.5f, Counts._mm_cmpge_ps);
+			real32 mm_cmple_ps = Add(0.5f, Counts._mm_cmple_ps);
+			real32 mm_min_ps = Add(0.5f, Counts._mm_min_ps);
+			real32 mm_max_ps = Add(0.5f, Counts._mm_max_ps);
+			real32 mm_cvttps_epi32 = Add(0.5f, Counts._mm_cvttps_epi32);
+			real32 mm_cvtps_epi32 = Add(0.5f, Counts._mm_cvtps_epi32);
+			real32 mm_cvtepi32_ps = Add(0.5f, Counts._mm_cvtepi32_ps);
+			real32 mm_and_si128 = Add(OneThird, Counts._mm_and_si128);
+			real32 mm_andnot_si128 = Add(OneThird, Counts._mm_andnot_si128);
+			real32 mm_srli_epi32 = Add(0.5f, Counts._mm_srli_epi32);
+			real32 mm_slli_epi32 = Add(0.5f, Counts._mm_slli_epi32);
+			real32 mm_sqrt_ps = Add(3, Counts._mm_sqrt_ps);
+			
 #endif
+			PixelPx = _mm_add_ps(PixelPx, Four_4x);			
 			Pixel += 4;
 			
 		}
@@ -662,7 +750,7 @@ DrawRectangleHopefullyQuickly(loaded_bitmap *Buffer, vec2 Origin, vec2 XAxis, ve
 	}
 	
 	END_TIMED_COUNTED(ProcessPixel, (XMax - XMin + 1)*(YMax - YMin + 1));
-	END_TIMED_BLOCK(DrawRectangleHopefullyQuickly);
+	END_TIMED_BLOCK(DrawRectangleQuickly);
 }
 
 internal void
@@ -963,7 +1051,7 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_bitmap *OutputBuffer)
 #if 0
 				DrawBitmap(OutputTarget, Entry->Bitmap, P.x, P.y, Entry->Color.a);
 #endif
-      			DrawRectangleHopefullyQuickly(OutputBuffer, Basis.P,
+      			DrawRectangleQuickly(OutputBuffer, Basis.P,
 											  Basis.Scale*Vec2(Entry->Size.x, 0),
 											  Basis.Scale*Vec2(0, Entry->Size.y),
 											  Entry->Color,
