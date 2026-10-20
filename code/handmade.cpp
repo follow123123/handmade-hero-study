@@ -515,7 +515,7 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer
 	}
 #endif
 
-	RenderGroupToOutput(RenderGroup, Buffer);
+	TiledRenderGroupToOutput(RenderGroup, Buffer);
 	EndTemporaryMemory(GroundMemory);
 }
 
@@ -988,7 +988,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		InitializeArena(&TranState->TranArena, Memory->TransientStorageSize - sizeof(transient_state),
 						(uint8 *)Memory->TransientStorage + sizeof(transient_state));
 		
-		TranState->GroundBufferCount = 64;
+		TranState->GroundBufferCount = 256;
 		TranState->GroundBuffers = PushArray(&TranState->TranArena, TranState->GroundBufferCount, ground_buffer);
 		for (uint32 GroundBufferIndex = 0; GroundBufferIndex < TranState->GroundBufferCount; ++GroundBufferIndex)
 		{		
@@ -998,7 +998,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		}
 			
 		GameState->TestDiffuse = MakeEmptyBitmap(&TranState->TranArena, 256, 256, false);
-		DrawRectangle(&GameState->TestDiffuse, Vec2(0, 0), Vec2i(GameState->TestDiffuse.Width, GameState->TestDiffuse.Height), Vec4(0.5f, 0.5f, 0.5f, 1.0f));
 		GameState->TestNormal = MakeEmptyBitmap(&TranState->TranArena, GameState->TestDiffuse.Width, GameState->TestDiffuse.Height, false);
 		MakeSphereNormalMap(&GameState->TestNormal, 0.0f, 1.0f, 1.0f);
 		MakeSphereDiffuseMap(&GameState->TestDiffuse);
@@ -1389,7 +1388,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
 		    case EntityType_Space:
 		    {
-#if 1
+#if 0
 				for (uint32 VolumeIndex = 0; VolumeIndex < Entity->Collision->VolumeCount; ++VolumeIndex)
 				{
 					sim_entity_collision_volume *Volume = Entity->Collision->Volumes + VolumeIndex;
@@ -1494,7 +1493,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 	}
 #endif
 	
-	RenderGroupToOutput(RenderGroup, DrawBuffer);
+	TiledRenderGroupToOutput(RenderGroup, DrawBuffer);
 	
 	EndSim(SimRegion, GameState);
 	EndTemporaryMemory(SimMemory);
