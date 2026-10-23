@@ -1053,27 +1053,55 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_bitmap *OutputBuffer,
 	END_TIMED_BLOCK(RenderGroupToOutput);
 }
 
+struct tile_render_work
+{
+	render_group *RenderGroup;
+	loaded_bitmap *OutputTarget;
+	rectangle2i ClipRect;
+};
+
+internal void
+DoTiledRenderWork(void* Data)
+{
+	tile_render_work *Work = (tile_render_work *)Data;
+
+	RenderGroupToOutput(Work->RenderGroup, Work->OutputTarget, Work->ClipRect, true);
+	RenderGroupToOutput(Work->RenderGroup, Work->OutputTarget, Work->ClipRect, false);
+}
+
 internal void
 TiledRenderGroupToOutput(render_group *RenderGroup, loaded_bitmap *OutputTarget)
 {
-	int TileCountX = 4;
-	int TileCountY = 4;
+	int const TileCountX = 4;
+	int const TileCountY = 4;
+	tile_render_work WorkArray[TileCountX*TileCountY];
+	
 	int TileWidth = OutputTarget->Width / TileCountX;
 	int TileHeight = OutputTarget->Height / TileCountY;
 	
-	rectangle2i ClipRect;
+	int WorkCount = 0;
 	for (int TileY = 0; TileY < TileCountY; ++TileY)
 	{
 		for (int TileX = 0; TileX < TileCountX; ++TileX)
 		{
+			tile_render_work *Work = WorkArray + WorkCount++;
+
+			rectangle2i ClipRect;
 			ClipRect.MinX = 4 + TileX*TileWidth;
 			ClipRect.MaxX = ClipRect.MinX + TileWidth - 4;
 			ClipRect.MinY = 4 + TileY*TileHeight;
 			ClipRect.MaxY = ClipRect.MinY + TileHeight - 4;
 
-			RenderGroupToOutput(RenderGroup, OutputTarget, ClipRect, true);
-			RenderGroupToOutput(RenderGroup, OutputTarget, ClipRect, false);
+			Work->RenderGroup = RenderGroup;
+			Work->OutputTarget = OutputTarget;
+			Work->ClipRect = ClipRect;
 		}
+	}
+
+	for (int WorkIndex = 0; WorkIndex < WorkCount; ++WorkIndex)
+	{
+		tile_render_work *Work = WorkArray + WorkIndex;
+		DoTiledRenderWork(Work);
 	}
 }
 
