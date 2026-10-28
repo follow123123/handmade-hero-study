@@ -914,25 +914,25 @@ AllocateRenderGroup(memory_arena *Arena, uint32 MaxPushBufferSize,
 
 	Result->PushBufferBase = (uint8 *)_PushSize(Arena, MaxPushBufferSize);
 
-	Result->DefaultBasis = PushStruct(Arena, render_basis);
-	Result->DefaultBasis->P = Vec3(0, 0, 0);
-	
 	Result->MaxPushBufferSize = MaxPushBufferSize;
 	Result->PushBufferSize = 0;
 
-	real32 WidthOfMonitor = 0.635f;
-	Result->GameCamera.FocalLength = 0.6f;
-	Result->GameCamera.DistanceAboveTarget = 9.0f;
-	Result->RenderCamera = Result->GameCamera;
-//	Result->RenderCamera.DistanceAboveTarget = 30.0f;
-
 	Result->GlobalAlpha = 1.0f;
-	Result->MetersToPixels = (real32)ResolutionPixelsX*WidthOfMonitor;
 
-	real32 PixelsToMeters = 1.0f / Result->MetersToPixels;
+	real32 WidthOfMonitor = 0.635f;
+	real32 MetersToPixels = (real32)WidthOfMonitor*ResolutionPixelsX;
+	real32 PixelsToMeters = SafeRatio1(1.0f, MetersToPixels);
 	Result->MonitorHalfDimInMeters = {0.5f*ResolutionPixelsX*PixelsToMeters,
 		                              0.5f*ResolutionPixelsY*PixelsToMeters};
-	
+
+	Result->Transform.MetersToPixels = MetersToPixels;
+	Result->Transform.FocalLength = 0.6f;
+	Result->Transform.DistanceAboveTarget = 9.0f;
+	Result->Transform.ScreenCenter = Vec2(0.5f*ResolutionPixelsX,
+										  0.5f*ResolutionPixelsY);
+	Result->Transform.OffsetP = Vec3(0.0f, 0.0f, 0.0f);
+	Result->Transform.Scale = 1.0f;
+
 	return Result;
 }
 
@@ -943,24 +943,26 @@ struct entity_basis_p_result
 	bool32 Valid;
 };
 inline entity_basis_p_result
-GetRenderEntityBasisP(render_group *RenderGroup, render_entity_basis *EntityBasis, vec2 ScreenDim)   
-{
-	vec2 ScreenCenter = 0.5f*ScreenDim;
-
+GetRenderEntityBasisP(render_transform *Transform, vec3 OriginalP)   
+{	
 	entity_basis_p_result Result = {};
 
-	vec3 EntityBasisP = EntityBasis->Basis->P;	
+	vec3 P = Vec3(OriginalP.xy, 0.0f) + Transform->OffsetP;
 
-	real32 DistanceToPZ = RenderGroup->RenderCamera.DistanceAboveTarget - EntityBasisP.z;
+	real32 OffsetZ = 0.0f;
+
+	real32 DistanceAboveTarget = Transform->DistanceAboveTarget;
+	
+	real32 DistanceToPZ = DistanceAboveTarget - P.z;
 	real32 NearClipPlane = 0.2f;
 	
-	vec3 RawXY = Vec3(EntityBasisP.xy + EntityBasis->Offset.xy, 1.0f); // NOTE; isnt offset in pixels? why can we just add them together?
+	vec3 RawXY = Vec3(P.xy, 1.0f); // NOTE; isnt offset in pixels? why can we just add them together?
 
 	if (DistanceToPZ > NearClipPlane)
 	{
-		vec3 ProjectedXY = (1.0f / DistanceToPZ) * RenderGroup->RenderCamera.FocalLength*RawXY;
-		Result.P = ScreenCenter + RenderGroup->MetersToPixels*ProjectedXY.xy;;
-		Result.Scale = RenderGroup->MetersToPixels*ProjectedXY.z;
+		vec3 ProjectedXY = (1.0f / DistanceToPZ) * Transform->FocalLength*RawXY;
+		Result.Scale = Transform->MetersToPixels*ProjectedXY.z;
+		Result.P = Transform->ScreenCenter + Transform->MetersToPixels*ProjectedXY.xy + Vec2(0.0f, Result.Scale*OffsetZ);
 		Result.Valid = true;
 	}
 	
@@ -972,11 +974,9 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_bitmap *OutputBuffer,
 					rectangle2i ClipRect, bool32 Even)
 {
 	BEGIN_TIMED_BLOCK(RenderGroupToOutput);
-	
-	vec2 ScreenDim = {(real32)OutputBuffer->Width, (real32)OutputBuffer->Height};
-	real32 MetersToPixels = ScreenDim.x / 20.0f;
-	real32 PixelsToMeters = 1.0f / MetersToPixels;
-	
+
+	real32 NullPixelsToMeters = 1.0f;
+   
 	for (uint32 BaseAddress = 0; BaseAddress < RenderGroup->PushBufferSize;)
 	{
 		render_group_entry_header *Header = (render_group_entry_header *)(RenderGroup->PushBufferBase + BaseAddress);
@@ -999,17 +999,15 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_bitmap *OutputBuffer,
 		    case RenderGroupEntryType_render_entry_bitmap:
      		{
      			render_entry_bitmap *Entry = (render_entry_bitmap *)Data;
-
-				entity_basis_p_result Basis = GetRenderEntityBasisP(RenderGroup, &Entry->EntityBasis, ScreenDim);
 				
 #if 0
 				DrawBitmap(OutputTarget, Entry->Bitmap, P.x, P.y, Entry->Color.a);
 #endif
-      			DrawRectangleQuickly(OutputBuffer, Basis.P,
-									 Basis.Scale*Vec2(Entry->Size.x, 0),
-									 Basis.Scale*Vec2(0, Entry->Size.y),
+      			DrawRectangleQuickly(OutputBuffer, Entry->P,
+									 Vec2(Entry->Size.x, 0),
+									 Vec2(0, Entry->Size.y),
 									 Entry->Color,
-									 Entry->Bitmap, PixelsToMeters,
+									 Entry->Bitmap, NullPixelsToMeters,
 									 ClipRect, Even);
 
      			BaseAddress += sizeof(*Entry);
@@ -1018,10 +1016,8 @@ RenderGroupToOutput(render_group *RenderGroup, loaded_bitmap *OutputBuffer,
      		case RenderGroupEntryType_render_entry_rectangle:
      		{
      			render_entry_rectangle *Entry = (render_entry_rectangle *)Data;
-     
-				entity_basis_p_result Basis = GetRenderEntityBasisP(RenderGroup, &Entry->EntityBasis, ScreenDim);
-				
-     			DrawRectangle(OutputBuffer, Basis.P, Basis.P + Basis.Scale*Entry->Dim, Entry->Color,
+     				
+     			DrawRectangle(OutputBuffer, Entry->P, Entry->P + Entry->Dim, Entry->Color,
 							  ClipRect, Even);
 
      			BaseAddress += sizeof(*Entry);			
@@ -1163,29 +1159,40 @@ _PushRenderElement(render_group *Group, uint32 Size, render_group_entry_type Typ
 inline void
 PushBitmap(render_group *RenderGroup, loaded_bitmap *Bitmap, real32 Height, vec3 Offset, vec4 Color=Vec4(1, 1, 1, 1))
 {
-	render_entry_bitmap *Entry = PushRenderElement(RenderGroup, render_entry_bitmap);
-	if (Entry)
+	vec2 Size = Vec2(Height*Bitmap->WidthOverHeight, Height);
+	vec2 Align = Hadamard(Bitmap->AlignPercentage, Size);
+	vec3 P = Offset - Vec3(Align, 0);
+
+	entity_basis_p_result Basis = GetRenderEntityBasisP(&RenderGroup->Transform, P);
+	if (Basis.Valid)
 	{
-		Entry->Bitmap = Bitmap;
-		Entry->EntityBasis.Basis = RenderGroup->DefaultBasis;
-		vec2 Size = {Height*Bitmap->WidthOverHeight, Height};
-		vec2 Align = Hadamard(Bitmap->AlignPercentage, Size);
-		Entry->EntityBasis.Offset = Offset - Vec3(Align, 0); //NOTE; Offset is indeed not in pixel space
-		Entry->Color = RenderGroup->GlobalAlpha*Color;
-		Entry->Size = Size;
+		render_entry_bitmap *Entry = PushRenderElement(RenderGroup, render_entry_bitmap);
+		if (Entry)
+		{
+			Entry->Bitmap = Bitmap;
+			Entry->P = Basis.P;
+			Entry->Color = RenderGroup->GlobalAlpha*Color;
+			Entry->Size = Basis.Scale*Size;
+		}
 	}
 }
 
 inline void
 PushRect(render_group *RenderGroup, vec3 Offset, vec2 Dim, vec4 Color)
 {
-	render_entry_rectangle *Entry = PushRenderElement(RenderGroup, render_entry_rectangle);
-	if (Entry)
+	vec3 P = Offset - Vec3(0.5f*Dim, 0);
+
+	entity_basis_p_result Basis = GetRenderEntityBasisP(&RenderGroup->Transform, P);
+
+	if (Basis.Valid)
 	{
-		Entry->EntityBasis.Basis = RenderGroup->DefaultBasis;
-		Entry->EntityBasis.Offset = Offset - Vec3(0.5f*Dim, 0);
-		Entry->Color = Color;
-		Entry->Dim = Dim;
+		render_entry_rectangle *Entry = PushRenderElement(RenderGroup, render_entry_rectangle);
+		if (Entry)
+		{
+			Entry->P = Basis.P;
+			Entry->Color = Color;
+			Entry->Dim = Basis.Scale*Dim;
+		}
 	}
 }
 
@@ -1236,7 +1243,7 @@ CoordinateSystem(render_group *RenderGroup, vec2 Origin, vec2 XAxis, vec2 YAxis,
 inline vec2
 Unproject(render_group *Group, vec2 ProjectedXY, real32 AtDistanceFromCamera)
 {
-	vec2 WorldXY = (AtDistanceFromCamera / Group->GameCamera.FocalLength) * ProjectedXY;
+	vec2 WorldXY = (AtDistanceFromCamera / Group->Transform.FocalLength) * ProjectedXY;
 
 	return WorldXY;
 }
@@ -1253,7 +1260,7 @@ GetCameraRectangleAtDistance(render_group *Group, real32 AtDistanceFromCamera)
 inline rectangle2
 GetCameraRectangleAtTarget(render_group *Group)
 {
-	rectangle2 Result = GetCameraRectangleAtDistance(Group, Group->GameCamera.DistanceAboveTarget);
+	rectangle2 Result = GetCameraRectangleAtDistance(Group, Group->Transform.DistanceAboveTarget);
 
 	return Result;
 }

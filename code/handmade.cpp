@@ -700,6 +700,8 @@ game_memory *DebugGlobalMemory;
 #endif
 extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {
+	PlatformAddEntry = Memory->PlatformAddEntry;
+	PlatformCompleteAllWork = Memory->PlatformCompleteAllWork;
 #if HANDMADE_INTERNAL
 	DebugGlobalMemory = Memory;
 #endif
@@ -707,9 +709,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
     Assert((&Input->Controllers[0].Terminator - &Input->Controllers[0].Buttons[0]) 
 		   == (ArrayCount(Input->Controllers[0].Buttons)));    
-
-	PlatformAddEntry = Memory->PlatformAddEntry;
-	PlatformCompleteAllWork = Memory->PlatformCompleteAllWork;
 
 	uint32 GroundBufferWidth = 256;
 	uint32 GroundBufferHeight = 256;
@@ -1151,12 +1150,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
 			if ((Delta.z >= -1.0f) && (Delta.z <= 1.0f))
 			{
-				render_basis *Basis = PushStruct(&TranState->TranArena, render_basis);
-				RenderGroup->DefaultBasis = Basis;
-				Basis->P = Delta;
-
 				real32 GroundSideInMeters = World->ChunkDimInMeters.x;
-				PushBitmap(RenderGroup, Bitmap, GroundSideInMeters, Vec3(0, 0, 0));
+				PushBitmap(RenderGroup, Bitmap, GroundSideInMeters, Delta);
 
 				PushRectOutline(RenderGroup, Vec3(0, 0, 0), Vec2(GroundSideInMeters, GroundSideInMeters), Vec4(1, 1, 0, 1));
 			}
@@ -1222,9 +1217,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		
 	vec3 CameraP = Subtract(GameState->World, &GameState->CameraP, &SimCenterP);
 
-	render_basis *Basis = PushStruct(&TranState->TranArena, render_basis);
-	RenderGroup->DefaultBasis = Basis;
-	Basis->P = Vec3(0, 0, 0);
 	PushRectOutline(RenderGroup, Vec3(0, 0, 0), GetDim(ScreenBounds), Vec4(1.0f, 1.0f, 0.0f, 1.0f));
 	//PushRectOutline(RenderGroup, Vec3(0, 0, 0), GetDim(CameraBoundsInMeters).xy, Vec4(1.0f, 1.0f, 1.0f, 1.0f));
 	PushRectOutline(RenderGroup, Vec3(0, 0, 0), GetDim(SimBounds).xy, Vec4(0.0f, 1.0f, 1.0f, 1.0f));
@@ -1250,9 +1242,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		move_spec MoveSpec = DefaultMoveSpec();
 		vec3 ddP = {};
 		
-		render_basis *Basis = PushStruct(&TranState->TranArena, render_basis);
-		RenderGroup->DefaultBasis = Basis;
-
 		vec3 CameraRelativeGroundP = GetEntityGroundPoint(Entity) - CameraP;
 		real32 FadeTopEndZ = 0.75f*GameState->TypicalFloorHeight;
 		real32 FadeTopStartZ = 0.5f*GameState->TypicalFloorHeight;
@@ -1269,6 +1258,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 		}
 		
 		hero_bitmaps *HeroBitmaps = &GameState->HeroBitmaps[Entity->FacingDirection];						
+
+		// NOTE: Pre-physics entity work
 		switch (Entity->Type)
 		{
 		    case EntityType_Hero:
@@ -1302,14 +1293,6 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 						}
 					}
 				}
-
-				real32 HeroSizeC = 2.5f;
-				PushBitmap(RenderGroup, &GameState->Shadow, HeroSizeC*1.0f, Vec3(0, 0, 0), Vec4(1, 1, 1, ShadowAlpha));
-		    	PushBitmap(RenderGroup, &HeroBitmaps->Torso, HeroSizeC*1.2f, Vec3(0, 0, 0));
-		    	PushBitmap(RenderGroup, &HeroBitmaps->Cape, HeroSizeC*1.2f, Vec3(0, 0, 0));
-		    	PushBitmap(RenderGroup, &HeroBitmaps->Head, HeroSizeC*1.2f, Vec3(0, 0, 0));
-				
-				DrawHitPoints(Entity, RenderGroup);
 		    } break;
 
      	    case EntityType_Sword:
@@ -1323,18 +1306,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 					ClearCollisionRulesFor(GameState, Entity->StorageIndex);
 					MakeEntityNonSpatial(Entity);
 				}
-       	 		
-				PushBitmap(RenderGroup, &GameState->Shadow, 0.5f, Vec3(0, 0, 0), Vec4(1, 1, 1, ShadowAlpha));
-				PushBitmap(RenderGroup, &GameState->Sword, 0.5f, Vec3(0, 0, 0));
 			} break;
-			
-		    case EntityType_Monster:
-		    {
-		    	PushBitmap(RenderGroup, &GameState->Shadow, 4.5f, Vec3(0, 0, 0), Vec4(1, 1, 1, ShadowAlpha));
-		    	PushBitmap(RenderGroup, &HeroBitmaps->Torso, 4.5f, Vec3(0, 0, 0));
-
-				DrawHitPoints(Entity, RenderGroup);
-		    } break;
 			
 		    case EntityType_Familiar:
 		    {
@@ -1368,6 +1340,47 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     			MoveSpec.UnitMaxAccelVector = true;
     			MoveSpec.Speed = 50.0f;
     			MoveSpec.Drag = 8.0f;
+     		} break;
+		}    
+
+		if (!IsSet(Entity, EntityFlag_Nonspatial) &&
+			IsSet(Entity, EntityFlag_Moveable))
+		{
+			MoveEntity(GameState, SimRegion, Entity, dt, &MoveSpec, ddP);
+		}
+
+		RenderGroup->Transform.OffsetP = GetEntityGroundPoint(Entity);
+
+		// NOTE: Post-physics entity work
+		switch (Entity->Type)
+		{
+		    case EntityType_Hero:
+		    {
+				real32 HeroSizeC = 2.5f;
+				PushBitmap(RenderGroup, &GameState->Shadow, HeroSizeC*1.0f, Vec3(0, 0, 0), Vec4(1, 1, 1, ShadowAlpha));
+		    	PushBitmap(RenderGroup, &HeroBitmaps->Torso, HeroSizeC*1.2f, Vec3(0, 0, 0));
+		    	PushBitmap(RenderGroup, &HeroBitmaps->Cape, HeroSizeC*1.2f, Vec3(0, 0, 0));
+		    	PushBitmap(RenderGroup, &HeroBitmaps->Head, HeroSizeC*1.2f, Vec3(0, 0, 0));				
+
+				DrawHitPoints(Entity, RenderGroup);
+		    } break;
+
+     	    case EntityType_Sword:
+     	    {
+				PushBitmap(RenderGroup, &GameState->Shadow, 0.5f, Vec3(0, 0, 0), Vec4(1, 1, 1, ShadowAlpha));
+				PushBitmap(RenderGroup, &GameState->Sword, 0.5f, Vec3(0, 0, 0));
+			} break;
+			
+		    case EntityType_Monster:
+		    {
+		    	PushBitmap(RenderGroup, &GameState->Shadow, 4.5f, Vec3(0, 0, 0), Vec4(1, 1, 1, ShadowAlpha));
+		    	PushBitmap(RenderGroup, &HeroBitmaps->Torso, 4.5f, Vec3(0, 0, 0));
+
+				DrawHitPoints(Entity, RenderGroup);
+		    } break;
+			
+		    case EntityType_Familiar:
+		    {
     			Entity->tBob += dt;
     			
     			if (Entity->tBob > (2.0f*Pi32))
@@ -1385,10 +1398,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 			} break;
 
 		    case EntityType_Stairwell:
-			{ // NOTE continue here
+			{
 				PushRect(RenderGroup, Vec3(0, 0, 0), Entity->WalkableDim, Vec4(1, 0.5f, 0, 1));
 				PushRect(RenderGroup, Vec3(0, 0, Entity->WalkableHeight), Entity->WalkableDim, Vec4(1, 1, 0, 1));
-
 			} break;
 
 		    case EntityType_Space:
@@ -1406,17 +1418,11 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 			{
 				InvalidCodePath;
 			} break;
-		}    
-
-		if (!IsSet(Entity, EntityFlag_Nonspatial) &&
-			IsSet(Entity, EntityFlag_Moveable))
-		{
-			MoveEntity(GameState, SimRegion, Entity, dt, &MoveSpec, ddP);
-		}
-
-		Basis->P = GetEntityGroundPoint(Entity);
+		}		
 	}
 
+	RenderGroup->GlobalAlpha = 1.0f;
+	
 #if 0
 	GameState->Time += Input->dtForFrame;	
 
