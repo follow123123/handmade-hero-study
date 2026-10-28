@@ -42,6 +42,9 @@ typedef int32_t int32;
 typedef int64_t int64;
 typedef int32 bool32;
 
+typedef intptr_t intptr;
+typedef uintptr_t uintptr;
+	
 typedef size_t memory_index;
 	
 typedef float real32;
@@ -71,6 +74,8 @@ typedef double real64;
 
 #define ArrayCount(Array) (sizeof(Array) / sizeof((Array)[0]))
 
+#define Align16(Value) ((Value + 15) & ~15)
+	
 inline uint32
 SafeTruncateUInt64(uint64 Value)
 {

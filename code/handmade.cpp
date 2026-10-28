@@ -708,6 +708,9 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     Assert((&Input->Controllers[0].Terminator - &Input->Controllers[0].Buttons[0]) 
 		   == (ArrayCount(Input->Controllers[0].Buttons)));    
 
+	PlatformAddEntry = Memory->PlatformAddEntry;
+	PlatformCompleteAllWork = Memory->PlatformCompleteAllWork;
+
 	uint32 GroundBufferWidth = 256;
 	uint32 GroundBufferHeight = 256;
 
@@ -716,10 +719,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 	Assert(sizeof(game_state) <= Memory->PermanentStorageSize);
 	game_state *GameState = (game_state *)Memory->PermanentStorage;
     if (!Memory->IsInitialized)
-    {
-		PlatformAddEntry = Memory->PlatformAddEntry;
-		PlatformCompleteAllWork = Memory->PlatformCompleteAllWork;
-
+    {		
 		uint32 TilesPerWidth = 17;
 		uint32 TilesPerHeight = 9;
 
