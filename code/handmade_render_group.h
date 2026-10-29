@@ -82,6 +82,8 @@ struct render_transform
 
 	vec3 OffsetP;
 	real32 Scale;
+
+	bool32 Orthographic;
 };
 
 struct render_group

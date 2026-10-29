@@ -441,25 +441,23 @@ internal void
 FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer *GroundBuffer, world_position *ChunkP)
 { 
 	temporary_memory GroundMemory = BeginTemporaryMemory(&TranState->TranArena);
-
+	GroundBuffer->P = *ChunkP;
+	
 	loaded_bitmap *Buffer = &GroundBuffer->Bitmap;
 	Buffer->WidthOverHeight = 1.0f;
 	Buffer->AlignPercentage = Vec2(0.5f, 0.5f);
 	
+	real32 Width = GameState->World->ChunkDimInMeters.x;
+	real32 Height = GameState->World->ChunkDimInMeters.y;
+	Assert(Width == Height);
+	vec2 HalfDim = 0.5f*Vec2(Width, Height);
+	
 	render_group *RenderGroup = AllocateRenderGroup(&TranState->TranArena, Megabytes(4),
 													Buffer->Width, Buffer->Height);
+	Orthographic(RenderGroup, Buffer->Width, Buffer->Height, Buffer->Width / Width);
 	RenderGroup->GlobalAlpha = 1.0f;	
 	Clear(RenderGroup, Vec4(1.0f, 1.0f, 0.0f, 1.0f));
 
-	GroundBuffer->P = *ChunkP;   		
-
-#if 0
-	real32 Width = GameState->World->ChunkDimInMeters.x;
-	real32 Height = GameState->World->ChunkDimInMeters.y;
-	vec2 HalfDim = 0.5f*Vec2(Width, Height);
-
-	HalfDim = 2.0f*HalfDim;
-	
 	for (int32 ChunkOffsetY = -1; ChunkOffsetY <= 1; ++ChunkOffsetY)
 	{
 		for (int32 ChunkOffsetX = -1; ChunkOffsetX <= 1; ++ChunkOffsetX)
@@ -469,6 +467,12 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer
 			int32 ChunkZ = ChunkP->ChunkZ;
 						
 			random_series Series = RandomSeed(139*ChunkX + 593*ChunkY + 329*ChunkZ);				
+
+			vec4 Color = Vec4(1, 0, 0, 1);
+			if ((ChunkX % 2) == (ChunkY % 2))
+			{
+				Color = Vec4(0, 0, 1, 1);
+			}
 
 			vec2 Center = Vec2(Width*ChunkOffsetX, Height*ChunkOffsetY);
 			
@@ -487,7 +491,7 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer
 
 				vec2 P = Center + Hadamard(HalfDim, Vec2(RandomBilateral(&Series), RandomBilateral(&Series)));
 				
-				PushBitmap(RenderGroup, Stamp, 4.0f, Vec3(P, 0.0f));
+				PushBitmap(RenderGroup, Stamp, 2.0f, Vec3(P, 0.0f), Color);
 			}
 		}
 	}
@@ -509,11 +513,10 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer
 				loaded_bitmap *Stamp = GameState->Tuft + RandomChoice(&Series, ArrayCount(GameState->Tuft));
 
 				vec2 P = Center + Hadamard(HalfDim, Vec2(RandomBilateral(&Series), RandomBilateral(&Series)));				
-				PushBitmap(RenderGroup, Stamp, 0.4f, Vec3(P, 0.0f));
+				PushBitmap(RenderGroup, Stamp, 0.1f, Vec3(P, 0.0f));
 			}
 		}
 	}
-#endif
 
 	TiledRenderGroupToOutput(TranState->RenderQueue, RenderGroup, Buffer);
 	EndTemporaryMemory(GroundMemory);
@@ -1127,9 +1130,11 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 	DrawBuffer->Pitch = Buffer->Pitch;
 	DrawBuffer->Memory = Buffer->Memory;
 
+	real32 WidthOfMonitor = 0.635f;
+	real32 MetersToPixels = (real32)WidthOfMonitor*DrawBuffer->Width;
 	render_group *RenderGroup = AllocateRenderGroup(&TranState->TranArena, Megabytes(4),
 													DrawBuffer->Width, DrawBuffer->Height);
-
+	Perspective(RenderGroup, DrawBuffer->Width, DrawBuffer->Height, MetersToPixels, 0.6f, 9.0f);
 	Clear(RenderGroup, Vec4(0.25f, 0.25f, 0.25f, 0.0f));	
 	
 	vec2 ScreenCenter = {0.5f*(real32)DrawBuffer->Width, 0.5f*(real32)DrawBuffer->Height};
@@ -1153,7 +1158,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 				real32 GroundSideInMeters = World->ChunkDimInMeters.x;
 				PushBitmap(RenderGroup, Bitmap, GroundSideInMeters, Delta);
 
-				PushRectOutline(RenderGroup, Vec3(0, 0, 0), Vec2(GroundSideInMeters, GroundSideInMeters), Vec4(1, 1, 0, 1));
+				PushRectOutline(RenderGroup, Delta, Vec2(GroundSideInMeters, GroundSideInMeters), Vec4(1, 1, 0, 1));
 			}
 		}
 	}

@@ -918,22 +918,44 @@ AllocateRenderGroup(memory_arena *Arena, uint32 MaxPushBufferSize,
 	Result->PushBufferSize = 0;
 
 	Result->GlobalAlpha = 1.0f;
-
-	real32 WidthOfMonitor = 0.635f;
-	real32 MetersToPixels = (real32)WidthOfMonitor*ResolutionPixelsX;
-	real32 PixelsToMeters = SafeRatio1(1.0f, MetersToPixels);
-	Result->MonitorHalfDimInMeters = {0.5f*ResolutionPixelsX*PixelsToMeters,
-		                              0.5f*ResolutionPixelsY*PixelsToMeters};
-
-	Result->Transform.MetersToPixels = MetersToPixels;
-	Result->Transform.FocalLength = 0.6f;
-	Result->Transform.DistanceAboveTarget = 9.0f;
-	Result->Transform.ScreenCenter = Vec2(0.5f*ResolutionPixelsX,
-										  0.5f*ResolutionPixelsY);
+	
 	Result->Transform.OffsetP = Vec3(0.0f, 0.0f, 0.0f);
 	Result->Transform.Scale = 1.0f;
 
 	return Result;
+}
+
+inline void
+Perspective(render_group *RenderGroup, int32 PixelWidth, int32 PixelHeight, real32 MetersToPixels,
+			real32 FocalLength, real32 DistanceAboveTarget)
+{
+	real32 PixelsToMeters = SafeRatio1(1.0f, MetersToPixels);
+	RenderGroup->MonitorHalfDimInMeters = {0.5f*PixelWidth*PixelsToMeters,
+		                                   0.5f*PixelHeight*PixelsToMeters};
+
+	RenderGroup->Transform.MetersToPixels = MetersToPixels;
+	RenderGroup->Transform.FocalLength = FocalLength;
+	RenderGroup->Transform.DistanceAboveTarget = DistanceAboveTarget;
+	RenderGroup->Transform.ScreenCenter = Vec2(0.5f*PixelWidth,
+											   0.5f*PixelHeight);
+
+	RenderGroup->Transform.Orthographic = false;
+}
+
+inline void
+Orthographic(render_group *RenderGroup, int32 PixelWidth, int32 PixelHeight, real32 MetersToPixels)
+{
+	real32 PixelsToMeters = SafeRatio1(1.0f, MetersToPixels);
+	RenderGroup->MonitorHalfDimInMeters = {0.5f*PixelWidth*PixelsToMeters,
+		                                   0.5f*PixelHeight*PixelsToMeters};
+
+	RenderGroup->Transform.MetersToPixels = MetersToPixels;
+	RenderGroup->Transform.FocalLength = 1.0f;
+	RenderGroup->Transform.DistanceAboveTarget = 1.0f;
+	RenderGroup->Transform.ScreenCenter = Vec2(0.5f*PixelWidth,
+											   0.5f*PixelHeight);
+
+	RenderGroup->Transform.Orthographic = true;
 }
 
 struct entity_basis_p_result
