@@ -452,9 +452,8 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer
 	Assert(Width == Height);
 	vec2 HalfDim = 0.5f*Vec2(Width, Height);
 	
-	render_group *RenderGroup = AllocateRenderGroup(&TranState->TranArena, Megabytes(4),
-													Buffer->Width, Buffer->Height);
-	Orthographic(RenderGroup, Buffer->Width, Buffer->Height, Buffer->Width / Width);
+	render_group *RenderGroup = AllocateRenderGroup(&TranState->TranArena, Megabytes(4));
+	Orthographic(RenderGroup, Buffer->Width, Buffer->Height, (Buffer->Width - 2) / Width);
 	RenderGroup->GlobalAlpha = 1.0f;	
 	Clear(RenderGroup, Vec4(1.0f, 1.0f, 0.0f, 1.0f));
 
@@ -491,7 +490,7 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer
 
 				vec2 P = Center + Hadamard(HalfDim, Vec2(RandomBilateral(&Series), RandomBilateral(&Series)));
 				
-				PushBitmap(RenderGroup, Stamp, 2.0f, Vec3(P, 0.0f), Color);
+				PushBitmap(RenderGroup, Stamp, 2.0f, Vec3(P, 0.0f));
 			}
 		}
 	}
@@ -518,7 +517,7 @@ FillGroundChunk(transient_state *TranState, game_state *GameState, ground_buffer
 		}
 	}
 
-	TiledRenderGroupToOutput(TranState->RenderQueue, RenderGroup, Buffer);
+	TiledRenderGroupToOutput(TranState->HighPriorityQueue, RenderGroup, Buffer);
 	EndTemporaryMemory(GroundMemory);
 }
 
@@ -1023,7 +1022,8 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 			}
 		}
 
-		TranState->RenderQueue = Memory->HighPriorityQueue;
+		TranState->HighPriorityQueue = Memory->HighPriorityQueue;
+		TranState->LowPriorityQueue = Memory->LowPriorityQueue;
 		
 		TranState->IsInitialized = true;
 	}
@@ -1132,8 +1132,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
 	real32 WidthOfMonitor = 0.635f;
 	real32 MetersToPixels = (real32)WidthOfMonitor*DrawBuffer->Width;
-	render_group *RenderGroup = AllocateRenderGroup(&TranState->TranArena, Megabytes(4),
-													DrawBuffer->Width, DrawBuffer->Height);
+	render_group *RenderGroup = AllocateRenderGroup(&TranState->TranArena, Megabytes(4));
 	Perspective(RenderGroup, DrawBuffer->Width, DrawBuffer->Height, MetersToPixels, 0.6f, 9.0f);
 	Clear(RenderGroup, Vec4(0.25f, 0.25f, 0.25f, 0.0f));	
 	
@@ -1158,7 +1157,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 				real32 GroundSideInMeters = World->ChunkDimInMeters.x;
 				PushBitmap(RenderGroup, Bitmap, GroundSideInMeters, Delta);
 
-				PushRectOutline(RenderGroup, Delta, Vec2(GroundSideInMeters, GroundSideInMeters), Vec4(1, 1, 0, 1));
+				//PushRectOutline(RenderGroup, Delta, Vec2(GroundSideInMeters, GroundSideInMeters), Vec4(1, 1, 0, 1));
 			}
 		}
 	}
@@ -1509,7 +1508,7 @@ extern "C" GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 	}
 #endif
 	
-	TiledRenderGroupToOutput(TranState->RenderQueue, RenderGroup, DrawBuffer);
+	TiledRenderGroupToOutput(TranState->HighPriorityQueue, RenderGroup, DrawBuffer);
 	
 	EndSim(SimRegion, GameState);
 	EndTemporaryMemory(SimMemory);

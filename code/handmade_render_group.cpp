@@ -458,6 +458,7 @@ DrawRectangleQuickly(loaded_bitmap *Buffer, vec2 Origin, vec2 XAxis, vec2 YAxis,
 		real32 One255 = 255.0f;
 
 		__m128 One = _mm_set1_ps(1.0f);
+		__m128 Half = _mm_set1_ps(0.5f);
 		__m128 One255_4x = _mm_set1_ps(255.0f);
 		__m128 Zero = _mm_set1_ps(0.0f);
 		__m128 Half_4x = _mm_set1_ps(0.5f);
@@ -535,8 +536,8 @@ DrawRectangleQuickly(loaded_bitmap *Buffer, vec2 Origin, vec2 XAxis, vec2 YAxis,
 					U = _mm_min_ps(_mm_max_ps(U, Zero), One);
 					V = _mm_min_ps(_mm_max_ps(V, Zero), One);
 			
-					__m128 tX = _mm_mul_ps(U, WidthM2);
-					__m128 tY = _mm_mul_ps(V, HeightM2);
+					__m128 tX = _mm_add_ps(_mm_mul_ps(U, WidthM2), Half);
+					__m128 tY = _mm_add_ps(_mm_mul_ps(V, HeightM2), Half);
 
 					__m128i FetchX_4x = _mm_cvttps_epi32(tX);			
 					__m128i FetchY_4x = _mm_cvttps_epi32(tY);
@@ -907,8 +908,7 @@ ChangeSaturation(loaded_bitmap *Buffer, real32 Level)
 }
 
 internal render_group *
-AllocateRenderGroup(memory_arena *Arena, uint32 MaxPushBufferSize,
-					uint32 ResolutionPixelsX, uint32 ResolutionPixelsY)
+AllocateRenderGroup(memory_arena *Arena, uint32 MaxPushBufferSize)
 {
 	render_group *Result = PushStruct(Arena, render_group);
 
@@ -971,21 +971,34 @@ GetRenderEntityBasisP(render_transform *Transform, vec3 OriginalP)
 
 	vec3 P = Vec3(OriginalP.xy, 0.0f) + Transform->OffsetP;
 
-	real32 OffsetZ = 0.0f;
-
-	real32 DistanceAboveTarget = Transform->DistanceAboveTarget;
-	
-	real32 DistanceToPZ = DistanceAboveTarget - P.z;
-	real32 NearClipPlane = 0.2f;
-	
-	vec3 RawXY = Vec3(P.xy, 1.0f); // NOTE; isnt offset in pixels? why can we just add them together?
-
-	if (DistanceToPZ > NearClipPlane)
+	if (Transform->Orthographic)
 	{
-		vec3 ProjectedXY = (1.0f / DistanceToPZ) * Transform->FocalLength*RawXY;
-		Result.Scale = Transform->MetersToPixels*ProjectedXY.z;
-		Result.P = Transform->ScreenCenter + Transform->MetersToPixels*ProjectedXY.xy + Vec2(0.0f, Result.Scale*OffsetZ);
+		Result.Scale = Transform->MetersToPixels;
+		Result.P = Transform->ScreenCenter + Transform->MetersToPixels*P.xy;
 		Result.Valid = true;
+	}
+	else
+	{
+		real32 OffsetZ = 0.0f;
+
+		real32 DistanceAboveTarget = Transform->DistanceAboveTarget;
+
+#if 1
+		DistanceAboveTarget += 50.0f;
+#endif
+	
+		real32 DistanceToPZ = DistanceAboveTarget - P.z;
+		real32 NearClipPlane = 0.2f;
+	
+		vec3 RawXY = Vec3(P.xy, 1.0f); // NOTE; isnt offset in pixels? why can we just add them together?
+
+		if (DistanceToPZ > NearClipPlane)
+		{
+			vec3 ProjectedXY = (1.0f / DistanceToPZ) * Transform->FocalLength*RawXY;
+			Result.Scale = Transform->MetersToPixels*ProjectedXY.z;
+			Result.P = Transform->ScreenCenter + Transform->MetersToPixels*ProjectedXY.xy + Vec2(0.0f, Result.Scale*OffsetZ);
+			Result.Valid = true;
+		}
 	}
 	
 	return Result;
