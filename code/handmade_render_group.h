@@ -88,6 +88,7 @@ struct render_transform
 
 struct render_group
 {
+	struct game_assets *Assets;
 	real32 GlobalAlpha;
 
 	vec2 MonitorHalfDimInMeters;

@@ -908,7 +908,7 @@ ChangeSaturation(loaded_bitmap *Buffer, real32 Level)
 }
 
 internal render_group *
-AllocateRenderGroup(memory_arena *Arena, uint32 MaxPushBufferSize)
+AllocateRenderGroup(game_assets *Assets, memory_arena *Arena, uint32 MaxPushBufferSize)
 {
 	render_group *Result = PushStruct(Arena, render_group);
 
@@ -921,6 +921,7 @@ AllocateRenderGroup(memory_arena *Arena, uint32 MaxPushBufferSize)
 	Result->MaxPushBufferSize = MaxPushBufferSize;
 	Result->PushBufferSize = 0;
 
+	Result->Assets = Assets;
 	Result->GlobalAlpha = 1.0f;
 	
 	Result->Transform.OffsetP = Vec3(0.0f, 0.0f, 0.0f);
@@ -1232,6 +1233,20 @@ PushBitmap(render_group *RenderGroup, loaded_bitmap *Bitmap, real32 Height, vec3
 			Entry->Color = RenderGroup->GlobalAlpha*Color;
 			Entry->Size = Basis.Scale*Size;
 		}
+	}
+}
+
+inline void
+PushBitmap(render_group *RenderGroup, game_asset_id ID, real32 Height, vec3 Offset, vec4 Color=Vec4(1, 1, 1, 1))
+{
+	loaded_bitmap *Bitmap = GetBitmap(RenderGroup->Assets, ID);
+	if (Bitmap)
+	{
+		PushBitmap(RenderGroup, Bitmap, Height, Offset, Color);
+	}
+	else
+	{
+		LoadAsset(RenderGroup->Assets, ID);
 	}
 }
 
