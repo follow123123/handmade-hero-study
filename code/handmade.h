@@ -29,17 +29,56 @@ InitializeArena(memory_arena *Arena, memory_index Size, void *Base)
 	Arena->TempCount = 0;
 }
 
-#define PushStruct(Arena, type) (type *)_PushSize(Arena, sizeof(type))
-#define PushArray(Arena, Count, type) (type *)_PushSize(Arena, Count*sizeof(type))
-#define PushSize(Arena, Size) _PushSize(Arena, Size)
-inline void *
-_PushSize(memory_arena *Arena, memory_index Size)
+inline memory_index
+GetAlignmentOffset(memory_arena *Arena, memory_index Alignment)
 {
-	Assert((Arena->Used + Size) <= Arena->Size);
-	void *Result = Arena->Base + Arena->Used;
-	Arena->Used += Size;
+	memory_index AlignmentOffset = 0;
+
+	memory_index ResultPointer = (memory_index)Arena->Base + Arena->Used;
+	memory_index AlignmentMask = Alignment - 1;
+	if (ResultPointer & AlignmentMask)
+	{
+		AlignmentOffset = Alignment - (ResultPointer & AlignmentMask);
+	}
+
+	return AlignmentOffset;
+}
+
+inline memory_index
+GetArenaSizeRemaining(memory_arena *Arena, memory_index Alignment=4)
+{
+	memory_index Result = Arena->Size - (Arena->Used + GetAlignmentOffset(Arena, Alignment));
 
 	return Result;
+}
+
+#define PushStruct(Arena, type, ...) (type *)_PushSize(Arena, sizeof(type), ## __VA_ARGS__)
+#define PushArray(Arena, Count, type, ...) (type *)_PushSize(Arena, Count*sizeof(type), ## __VA_ARGS__)
+#define PushSize(Arena, Size, ...) _PushSize(Arena, Size, ## __VA_ARGS__)
+inline void *
+_PushSize(memory_arena *Arena, memory_index SizeInit, memory_index Alignment=4)
+{
+	memory_index Size = SizeInit;
+
+	memory_index AlignmentOffset = GetAlignmentOffset(Arena, Alignment);
+	Size += AlignmentOffset;
+
+	Assert((Arena->Used + Size) <= Arena->Size);
+	void *Result = Arena->Base + Arena->Used + AlignmentOffset;
+	Arena->Used += Size;
+
+	Assert(Size >= SizeInit);
+
+	return Result;
+}
+
+inline void
+SubArena(memory_arena *Result, memory_arena *Arena, memory_index Size, memory_index Alignment=16)
+{
+	Result->Size = Size;
+	Result->Base = (uint8 *)PushSize(Arena, Size, Alignment);
+	Result->Used = 0;
+	Result->TempCount = 0;
 }
 
 #define ZeroStruct(Instance) ZeroSize(sizeof(Instance), &(Instance))
@@ -172,15 +211,25 @@ struct game_state
 	loaded_bitmap TestNormal;
 };
 
+struct task_with_memory
+{
+	bool32 BeginUsed;
+	memory_arena Arena;
+
+	temporary_memory MemoryFlush;
+};
+
 struct transient_state
 {
 	bool32 IsInitialized;
 	memory_arena TranArena;
+
+	task_with_memory Tasks[4];
+	
 	uint32 GroundBufferCount;
 	ground_buffer *GroundBuffers;
 	platform_work_queue *HighPriorityQueue;
 	platform_work_queue *LowPriorityQueue;
-	uint64 Pad;
 	
 	uint32 EnvMapWidth;
 	uint32 EnvMapHeight;

@@ -912,7 +912,11 @@ AllocateRenderGroup(memory_arena *Arena, uint32 MaxPushBufferSize)
 {
 	render_group *Result = PushStruct(Arena, render_group);
 
-	Result->PushBufferBase = (uint8 *)_PushSize(Arena, MaxPushBufferSize);
+	if (MaxPushBufferSize == 0)
+	{
+		MaxPushBufferSize = (uint32)GetArenaSizeRemaining(Arena);
+	}
+	Result->PushBufferBase = (uint8 *)PushSize(Arena, MaxPushBufferSize);
 
 	Result->MaxPushBufferSize = MaxPushBufferSize;
 	Result->PushBufferSize = 0;
@@ -983,7 +987,7 @@ GetRenderEntityBasisP(render_transform *Transform, vec3 OriginalP)
 
 		real32 DistanceAboveTarget = Transform->DistanceAboveTarget;
 
-#if 1
+#if 0
 		DistanceAboveTarget += 50.0f;
 #endif
 	
@@ -1115,6 +1119,25 @@ internal PLATFORM_WORK_QUEUE_CALLBACK(DoTileRenderWork)
 
 	RenderGroupToOutput(Work->RenderGroup, Work->OutputTarget, Work->ClipRect, true);
 	RenderGroupToOutput(Work->RenderGroup, Work->OutputTarget, Work->ClipRect, false);
+}
+
+internal void
+RenderGroupToOutput(render_group *RenderGroup, loaded_bitmap *OutputTarget)
+{	
+	Assert(((uintptr)OutputTarget->Memory & 15) == 0);
+
+	rectangle2i ClipRect;
+	ClipRect.MinX = 0;
+	ClipRect.MaxX = OutputTarget->Width;
+	ClipRect.MinY = 0;
+	ClipRect.MaxY = OutputTarget->Height;
+			
+	tile_render_work Work;
+	Work.RenderGroup = RenderGroup;
+	Work.OutputTarget = OutputTarget;
+	Work.ClipRect = ClipRect;
+
+	DoTileRenderWork(0, &Work);
 }
 
 internal void
